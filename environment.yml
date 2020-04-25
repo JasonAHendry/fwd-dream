@@ -1,0 +1,11 @@
+name: dream
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.7
+  - pysam
+  - scikit-allel
+  - jupyter
+  - scipy=1.4
+  - seaborn
