@@ -1,0 +1,1 @@
+python vary_param_set.py  -f param_correlation.ini -p gamma -v 0.013889 -v 0.012195 -v 0.010542 -v 0.008929 -v 0.007353 -v 0.005814 -v 0.004310 -v 0.002841 
