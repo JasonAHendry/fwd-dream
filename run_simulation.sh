@@ -2,7 +2,7 @@
 
 #$ -N sim
 #$ -P mcvean.prja -q short.qa
-#$ -o stdout_sim -e sterr_sim -j y
+#$ -o stdout_sim -e stderr_sim -j y
 #$ -cwd -V
 
 ### Submitting a forward-dream simulation to Rescomp1
