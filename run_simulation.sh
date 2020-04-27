@@ -1,7 +1,7 @@
 #/bin/bash
 
 #$ -N sim
-#$ -P mcvean.prja -q short.qa
+#$ -P mcvean.prjc -q short.qc
 #$ -o stdout_sim -e stderr_sim -j y
 #$ -cwd -V
 
