@@ -19,9 +19,8 @@ for opt, value in opts:
         iters = int(value)
         print(" Number of Iterations:", iters)
     elif opt == "-p":
-        param_file = value
-        param_path = os.path.join("params", param_file)
-        print("  Parameter File:", param_file)
+        param_path = value
+        print("  Parameter Path:", param_file)
     elif opt == "-s":
         seed_method = value
         print("Seed Method:", seed_method)
