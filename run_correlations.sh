@@ -29,7 +29,8 @@ while [[ $# -ge 1 ]]; do
 			shift
 			;;
 		*)
-			echo "Unidentified tag."
+			echo "Error, unidentified tag."
+			exit 1
 			;;
 	esac
 	shift  # past the tag value
@@ -39,13 +40,13 @@ param_sets=$(ls params/param_$vary_param*)
 echo "Preparing to submit correlation experiment."
 echo " Experiment Name:" $expt_name
 echo " Varying Parameter:" $vary_param
-echo " No. Param Sets:" `echo $vary_param | wc -w`
+echo " No. Param Sets:" `echo $param_sets | wc -w`
 echo " Go..."
-for param_set in param_sets; do
+for param_set in $param_sets; do
   echo "  Parameter Set:" $param_set
   echo "  Generating Submission Script..."
-  python gen_submit.py -e $expt_name -p `basename $param_set` -i $iters -s $seed_method
+  python gen_submit.py -e $expt_name -p $param_set -i $iters -s $seed_method
   echo "  Submitting..."
-  ./submit_simulation
+  #./submit_simulation
 done
 

@@ -20,7 +20,7 @@ for opt, value in opts:
         print(" Number of Iterations:", iters)
     elif opt == "-p":
         param_path = value
-        print("  Parameter Path:", param_file)
+        print("  Parameter Path:", param_path)
     elif opt == "-s":
         seed_method = value
         print("Seed Method:", seed_method)
@@ -41,7 +41,7 @@ f.write("\n# Submit a Suite of Simulations to Rescomp1")
 f.write("\n# Generated at: %s/%s/%s %s:%s:%s" % (ti.day, ti.month, ti.year, ti.hour, ti.minute, ti.second))
 f.write("\n# Experiment Name: %s" % expt_name)
 f.write("\n# Iterations: %s" % iters)
-f.write("\n# Parameter File: %s" % param_file)
+f.write("\n# Parameter File: %s" % param_path)
 f.write("\n# ----------------------")
 f.write("\n")
 for i in range(iters):
