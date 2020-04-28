@@ -47,6 +47,6 @@ for param_set in $param_sets; do
   echo "  Generating Submission Script..."
   python gen_submit.py -e $expt_name -p $param_set -i $iters -s $seed_method
   echo "  Submitting..."
-  #./submit_simulation
+  ./submit_simulation.sh
 done
 
