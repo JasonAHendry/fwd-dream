@@ -1,5 +1,16 @@
-# fwd-dream
+<p align="center"><img src="images/logo.png" alt="delve"></p>
+
 A **forward**-time simulation of malaria transmission and evolution: including **d**rift, **r**ecombination, **e**xtinction, **a**dmixture and **m**eiosis.
+
+## Install
+forward-dream is implemented in python and the dependencies can be installed using [conda](https://docs.conda.io/en/latest/):
+
+```
+git clone https://github.com/JasonAHendry/fwd-dream.git
+cd fwd-dream
+conda env create
+conda activate dream
+```
 
 ## Workflows
 
