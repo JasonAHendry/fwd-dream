@@ -1,4 +1,5 @@
 import os
+import errno
 import sys
 from datetime import datetime
 import re
@@ -65,7 +66,7 @@ while True:  # if running many parallel sims, race issues can arise in `out_path
             os.mkdir(out_path)
             break
         except OSError as e:
-            if e.errno != os.errno.EEXIST:
+            if e.errno != errno.EEXIST:
                 raise
             print("Directory assignment clash, trying again...")
             pass
