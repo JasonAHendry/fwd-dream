@@ -53,6 +53,12 @@ def remove_metrics(rmv, metrics):
     return [g for g in metrics if g not in rmv]
 
 
+tight_metrics = ['frac_mixed_samples', 'mean_k',
+                 'n_segregating', 'n_singletons',
+                 'pi', 'theta', 'tajd',
+                 'avg_frac_ibd', 'avg_n_ibd', 'avg_l_ibd']
+
+
 # ---------------------------------
 # Colours
 #
