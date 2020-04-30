@@ -373,10 +373,14 @@ while t0 < max_t0:
                 if current_epoch.adj_prev_samp:
                     base_prev_samp_freq = prev_samp_freq
                     prev_samp_freq = current_epoch.prev_samp_freq
+                    print("Adjusting Prevalence Sampling Rate:", base_prev_samp_freq)
+                    print("... to:", prev_samp_freq)
 
                 if current_epoch.adj_div_samp:
                     base_div_samp_freq = div_samp_freq
                     div_samp_freq = current_epoch.div_samp_freq
+                    print("Adjusting Diversity Sampling Rate:", base_div_samp_freq)
+                    print("... to:", div_samp_freq)
 
                 print("-"*80)
 
@@ -507,18 +511,18 @@ while t0 < max_t0:
             print("Not enough space to sample genetic diversity!")
             samps_left = int((max_t0 - t0)/div_samp_freq) + 1
             print("Expecting %d more genetic samples" % samps_left)
-            print("...adding fridge space.")
+            print("...adding space.")
             og = pd.concat([og, 
                             pd.DataFrame(np.zeros((samps_left, len(gen_metrics) + 1)), columns=['t0'] + gen_metrics)])
             og.index = list(range(len(og)))
 
             if track_sfs:
                 t0_sfs = np.concatenate([t0_sfs, np.zeros(samps_left)])
-                binned_sfs_array = np.vstack([binned_sfs_array, np.zeros(samps_left, n_bins)])
+                binned_sfs_array = np.vstack([binned_sfs_array, np.zeros((samps_left, n_bins))])
 
             if track_r2:
                 t0_r2 = np.concatenate([t0_r2, np.zeros(samps_left)])
-                binned_r2_array = np.vstack([binned_r2_array, np.zeros(samps_left, n_bins_r2)])
+                binned_r2_array = np.vstack([binned_r2_array, np.zeros((samps_left, n_bins_r2))])
 
             if track_allele_freqs:
                 t0_freqs = np.concatenate([t0_freqs, np.zeros(samps_left)])
