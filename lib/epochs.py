@@ -98,7 +98,8 @@ class Epoch(object):
 
         self.gen_rate = self.epoch_params['bite_rate_per_v'] * self.epoch_params['nv'] \
                         + self.epoch_params['gamma'] * h1 \
-                        + self.epoch_params['eta'] * v1
+                        + self.epoch_params['eta'] * v1 \
+                        + self.epoch_params["migration_rate"]  # include migration
         self.gens = self.telapse * self.gen_rate
 
     def set_approach(self, n_updates=50.0):

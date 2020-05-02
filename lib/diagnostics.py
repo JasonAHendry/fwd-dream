@@ -29,7 +29,7 @@ def calc_equil_params(params, derived_params):
     needed to compute equilibrium host and vector prevalence
     """
     equil_params = {"lmbda": derived_params['lmbda'], "psi": derived_params['psi'],
-                "gamma": params['gamma'], "eta": params['eta']}
+                    "gamma": params['gamma'], "eta": params['eta']}
     return equil_params
 
 
@@ -45,3 +45,11 @@ def calc_x_v(lmbda, psi, gamma, eta):
     Calculate parasite prevalence in vectors
     """
     return (lmbda * psi - gamma * eta) / (lmbda * psi + lmbda * eta)
+
+
+def calc_R0(lmbda, psi, gamma, eta):
+    """
+    Calculate the R0 statistic given 
+    a set of simulation parameters
+    """
+    return (lmbda * psi) / (gamma * eta)

@@ -98,6 +98,7 @@ derived_params = calc_derived_params(params)
 equil_params = calc_equil_params(params, derived_params)
 x_h = calc_x_h(**equil_params)
 x_v = calc_x_v(**equil_params)
+R0 = calc_R0(**equil_params)
 # Options
 options = {}
 options['init_duration'] = eval(config.get('Options', 'init_duration'))
@@ -107,6 +108,18 @@ options['detection_threshold'] = eval(config.get('Options', 'detection_threshold
 if seed_method == "seed_dir":
     options['seed_dir'] = config.get('Options', 'seed_dir')
     print("  Loading Seed Directory:", options['seed_dir'])
+if config.has_option('Options', 'migration_rate'):  # Migration will occur
+    print("Migration has been specified:")
+    params["migration_rate"] = config.getfloat('Options', 'migration_rate')
+    options["migration_source"] = config.get('Options', 'migration_source')
+    options["migration_t0"] = config.get('Options', 'migration_t0')
+    print("  Migration rate (events/day): %f" %     params["migration_rate"])
+    print("  Source population: %s" % options["migration_source"])
+    print("  Source Time: %s" % options["migration_t0"])
+    v_source = np.load(options["migration_source"])  # vectors for migration  
+    t0_source = np.load(options["migration_t0"])  # time for vectors
+else:
+    params["migration_rate"] = 0.0
 
 print("Parameter Values")
 print("  No. of Humans:", params['nh'])
@@ -127,6 +140,7 @@ print("  Lambda:", derived_params['lmbda'])
 print("  Psi:", derived_params['psi'])
 print("  Expected Human Prevalence:", x_h)
 print("  Expected Vector Prevalence:", x_v)
+print("  R0:", R0)
 print("    Run with back mutation?", options['back_mutation'])
 print("    Limit number of samples collected to:", options['max_samples'])
 print("    Set the detection threshold for mixed infections to:", options['detection_threshold'])
@@ -170,7 +184,8 @@ else:
 init_t1 = init_t0 + init_duration
 init_gen_rate = params['bite_rate_per_v']*params['nv'] \
                 + params['gamma']*x_h*params['nh'] \
-                + params['eta']*x_v*params['nv']
+                + params['eta']*x_v*params['nv'] \
+                + params['migration_rate']
 init_gens = init_duration*init_gen_rate  # days * gens per day = total gens
 # Epochs
 total_t0 = init_t1  # total time in simulation, given included epochs
@@ -268,6 +283,11 @@ if track_allele_freqs:
     n_v_genomes = np.zeros(div_max_samps, dtype='int16')
     h_freqs = np.zeros((div_max_samps, params['nsnps']))
     v_freqs = np.zeros((div_max_samps, params['nsnps']))
+store_genomes = config.getboolean('Sampling', 'store_genomes')
+print("    Store genomes (for migration)?:", store_genomes)
+if store_genomes:
+    t0_store = np.zeros(div_max_samps)
+    v_store = np.zeros((div_max_samps, params['npv'], params['nsnps']), dtype='int8')  # genomes to store
 track_params = config.getboolean('Sampling', 'track_allele_freqs')
 print("    Track Parameter Changes?:", track_params)
 if track_params:
@@ -531,6 +551,11 @@ while t0 < max_t0:
                 h_freqs = np.vstack([h_freqs, np.zeros((samps_left, params['nsnps']))])
                 v_freqs = np.vstack([v_freqs, np.zeros((samps_left, params['nsnps']))])
             
+            if store_genomes:
+                t0_store = np.concatenate([t0_store, np.zeros(samps_left)])
+                v_store = np.vstack([v_store,
+                                     np.zeros((samps_left, params['npv'], params['nsnps']), dtype='int8')])
+            
             div_max_samps += samps_left
     
         # Compute Genetics
@@ -567,6 +592,12 @@ while t0 < max_t0:
             h_freqs[div_samp_ct] = h_a.sum((0, 1))
             v_freqs[div_samp_ct] = v_a.sum((0, 1))
         
+        # Store genomes
+        if store_genomes:
+            ix = np.random.choice(np.flatnonzero(v))  # randomly an infected vector to store
+            v_store[div_samp_ct] = v_a[ix]
+            t0_store[div_samp_ct] = t0
+                        
         # Increment
         div_samp_ct += 1
         tdiv = t0
@@ -587,12 +618,13 @@ while t0 < max_t0:
     bite_rate = params['bite_rate_per_v']*params['nv']  # uninfected and infected bite
     clear_rate_h = params['gamma']*h1  # changes with h1
     clear_rate_v = params['eta']*v1
-    rates = np.array((bite_rate, clear_rate_h, clear_rate_v))
+    migration_rate = params['migration_rate']
+    rates = np.array((bite_rate, clear_rate_h, clear_rate_v, migration_rate))
     rates_total = rates.sum()
     
     # Move time forward until next event of type `typ`, based on population rates
     t0 += np.random.exponential(scale=1/rates_total)  # scale gives expectation
-    typ = np.random.choice(3, size=1, p=rates/rates_total)
+    typ = np.random.choice(4, size=1, p=rates/rates_total)
     
     if typ == 0:  # Bite
         idh = np.random.choice(params['nh'])
@@ -650,6 +682,19 @@ while t0 < max_t0:
         v[idv] = 0
         v_a[idv] = 0
         t_v[idv] = 0
+        
+    elif typ == 3:  # migration
+        idh = np.random.choice(params["nh"])  # any host may get infected
+
+        # Select the vector most recently stored
+        idv = np.max(np.flatnonzero(t0_source < t0))
+
+        # Transfer (v -> h)
+        # Rate assumes bite was infectious, i.e. no `p_inf_h`
+        # Vector comes from v_source
+        h_a[idh] = infect_host(hh=h_a[idh], vv=v_source[idv])
+        h[idh] = 1 
+        t_h[idh] = t0
 
     h1 = h.sum()
     v1 = v.sum()
@@ -713,6 +758,12 @@ if track_allele_freqs:
     np.save(os.path.join(out_path, "n_v_genomes.npy"), n_v_genomes)                                    
     np.save(os.path.join(out_path, "h_freqs.npy"), h_freqs)
     np.save(os.path.join(out_path, "v_freqs.npy"), v_freqs)
+    
+if store_genomes:
+    t0_store = t0_store[t0_store != 0]  # remove any excess
+    v_store = v_store[t0_store != 0]  # remove any excess
+    np.save(os.path.join(out_path, "t0_store.npy"), t0_store)
+    np.save(os.path.join(out_path, "v_store.npy"), v_store)
 
 if track_params:
     param_df = pd.concat([pd.DataFrame(param, index=[t0])
