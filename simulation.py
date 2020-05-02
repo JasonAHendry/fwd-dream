@@ -640,13 +640,13 @@ while t0 < max_t0:
                 t_v[idv] = t0
     
     elif typ == 1:  # Host clears
-        idh = np.random.choice(np.flatnonzero(h == 1)) if h1 > 1 else np.flatnonzero(h == 1)  # choice annoying default
+        idh = np.random.choice(np.flatnonzero(h))  # sample from infected
         h[idh] = 0
         h_a[idh] = 0
         t_h[idh] = 0
     
     elif typ == 2:  # Vector clears
-        idv = np.random.choice(np.flatnonzero(v == 1)) if v1 > 1 else np.flatnonzero(v == 1)
+        idv = np.random.choice(np.flatnonzero(v))  # sample from infected
         v[idv] = 0
         v_a[idv] = 0
         t_v[idv] = 0
