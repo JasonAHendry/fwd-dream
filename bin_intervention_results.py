@@ -115,8 +115,9 @@ og_bins = np.arange(0, epoch_df.iloc[0].t1, og_bin)
 for i, row in epoch_df[1:].iterrows():
     section = "Epoch_" + row['name']
     print("Preparing diversity bins for", section)
-    adj_prev = config.has_option(section, "div_samp_freq")
-    if adj_prev:
+    adj_div = config.has_option(section, "div_samp_freq")
+    
+    if adj_div:
         print("  Bin size changed in epoch.")
         adj_div_samp_freq = config.getfloat(section, "div_samp_freq")
         adj_og_bin = adj_div_samp_freq*obs_per_bin
@@ -127,7 +128,7 @@ for i, row in epoch_df[1:].iterrows():
             epoch_og_bins_base = np.arange(row.t0+adj_div_samp_t, row.t1, og_bin)
             epoch_og_bins = np.concatenate([epoch_og_bins_adj, epoch_og_bins_base])
         else:
-            epoch_og_bins = np.arange(row.t0, row.t1, og_bin)
+            epoch_og_bins = np.arange(row.t0, row.t1, adj_og_bin)
             og_bin = adj_og_bin
             
     else:  # use base bin size
@@ -203,27 +204,3 @@ if track_r2:
     np.save(os.path.join(output_path, "r2_mean.npy"), r2_mean)
     np.save(os.path.join(output_path, "r2_se.npy"), r2_se)
     np.save(os.path.join(output_path, "r2_bins.npy"), r2_bins)
-
-
-# ADDITIONAL PREVALENCE BINNING FOR ANIMATIONS
-if op_bin <= og_bin:  # this should almost always be the case
-    print("Re-binning prevalence for animation purposes.")
-    ops_binned_anim = bin_simulations(simulations=ops,
-                                      bins=og_bins,  # NB: binned to match genetics!
-                                      keep_cols=op_keep_cols)
-    ops_array_anim, ops_mean_anim, ops_std_anim, ops_se_anim = average_simulations(
-                                                simulations_binned=ops_binned_anim,
-                                                keep_cols=op_keep_cols,
-                                                bin_midpoints=og_bin_midpoints)
-    print(" Depositing in /anim directory.")
-    anim_path = os.path.join(output_path, "anim")
-    if not os.path.isdir(anim_path):
-        os.mkdir(anim_path)
-    # Write prevalence
-    np.save(anim_path + "/ops_array.npy", ops_array_anim)
-    ops_mean_anim.to_csv(anim_path + "/ops_mean.csv", index=False)
-    ops_std_anim.to_csv(anim_path + "/ops_stds.csv", index=False)
-    ops_se_anim.to_csv(anim_path + "/ops_se.csv", index=False)
-else:
-    print("Prevalence bins are LARGER than genetic bins.")
-    print("Note preparing data for animations.")
