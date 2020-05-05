@@ -33,8 +33,11 @@ print("=" * 80)
 
 # PARSE CLI INPUT
 print("Parsing Command Line Inputs...")
+migration = False
 try:
-    opts, args = getopt.getopt(sys.argv[1:], ":e:p:s:")
+    opts, args = getopt.getopt(sys.argv[1:], ":e:p:s:m:")
+    # python simulation.py -e <expt-name> -p <param_set.ini> -s <balanced> -m <migration_dir>
+    # Note -m is optional
 except getopt.GetoptError:
     print("Option Error. Please conform to:")
     print("-v <int>")
@@ -45,6 +48,9 @@ for opt, value in opts:
         param_file = value
     elif opt == "-s":
         seed_method = value
+    elif opt == "-m":
+        migration = True
+        migration_dir = value
     else:
         print("Parameter %s not recognized." % opt)
         sys.exit(2)
@@ -108,14 +114,19 @@ options['detection_threshold'] = eval(config.get('Options', 'detection_threshold
 if seed_method == "seed_dir":
     options['seed_dir'] = config.get('Options', 'seed_dir')
     print("  Loading Seed Directory:", options['seed_dir'])
-if config.has_option('Options', 'migration_rate'):  # Migration will occur
+if migration:  # Migration will occur
     print("Migration has been specified:")
+    if not config.has_option('Options', 'migration_rate'):
+        raise RuntimeError("Must specifiy 'migration_rate' within" +
+                           " configuration file to use -m flag.")
+    # Prepare migration parameters 
     params["migration_rate"] = config.getfloat('Options', 'migration_rate')
-    options["migration_source"] = config.get('Options', 'migration_source')
-    options["migration_t0"] = config.get('Options', 'migration_t0')
+    options["migration_source"] = os.path.join(migration_dir, "v_store.npy")
+    options["migration_t0"] = os.path.join(migration_dir, "t0_store.npy")
     print("  Migration rate (events/day): %f" %     params["migration_rate"])
     print("  Source population: %s" % options["migration_source"])
     print("  Source Time: %s" % options["migration_t0"])
+    
     v_source = np.load(options["migration_source"])  # vectors for migration  
     t0_source = np.load(options["migration_t0"])  # time for vectors
 else:
