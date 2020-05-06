@@ -771,8 +771,8 @@ if track_allele_freqs:
     np.save(os.path.join(out_path, "v_freqs.npy"), v_freqs)
     
 if store_genomes:
-    t0_store = t0_store[t0_store != 0]  # remove any excess
     v_store = v_store[t0_store != 0]  # remove any excess
+    t0_store = t0_store[t0_store != 0]  # do this *after* filtering v0_store
     np.save(os.path.join(out_path, "t0_store.npy"), t0_store)
     np.save(os.path.join(out_path, "v_store.npy"), v_store)
 
