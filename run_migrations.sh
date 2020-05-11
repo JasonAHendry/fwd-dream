@@ -38,10 +38,10 @@ while [[ $# -ge 1 ]]; do
 			shift
 			;;
 		-s)
-    		seed_method=$2
-    		echo "Seed Method:" $seed_method
-    		shift
-    		;;
+    			seed_method=$2
+    			echo "Seed Method:" $seed_method
+    			shift
+    			;;
 		*)
 			echo "Error, unidentified tag."
 			exit 1
