@@ -23,7 +23,7 @@ except getopt.GetoptError:
     print("Option Error. Please conform to:")
     print("-i <clonal/mixed/all>")
 
-miration = False
+migration = False
 for opt, value in opts:
     if opt == "-e":
         expt_name = value
