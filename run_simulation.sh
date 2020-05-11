@@ -38,16 +38,19 @@ do
 	  echo "Seed Method:" $seed_method
 	  shift
 	  ;;
+    -m)
+	  migration_dir=$2
+	  echo "Migration Directory:" $migration_dir
+	  shift
+	  ;;
 	*)
 	  ;;
   esac
   shift
 done
 
-echo "Running simulation.py"
-echo "======================================================================"
+echo "Running simulation.py..."
 python simulation.py $analysis_settings
-echo "======================================================================"
 echo "simulation.py complete."
 
 
