@@ -59,7 +59,7 @@ print("")
 
 
 # GENERATE SUBMISSION SCRIPT
-print("Generating `submit_simulations.py`...")
+print("Generating `submit_simulations.sh`...")
 ti = datetime.now()
 f = open("submit_simulation.sh", "w")
 f.write("\n# Submit a Suite of Simulations to Rescomp1")
