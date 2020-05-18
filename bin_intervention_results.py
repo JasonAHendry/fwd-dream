@@ -1,11 +1,24 @@
+import os
 import sys
 import getopt
 import configparser
+from datetime import datetime
 from lib.intervention import *
 from lib.preferences import *
 
+print("=" * 80)
+print("Bin and average results from forward-dream simulation")
+print("-" * 80)
+print("Command: %s" % " ".join(sys.argv))
+print("Run on host: %s" % os.uname().nodename)
+print("Operating system: %s" % os.uname().sysname)
+print("Machine: %s" % os.uname().machine)
+print("Started at: %s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+print("=" * 80)
+
 
 # PARSE COMMAND-LINE
+print("Parsing Command Line Inputs...")
 try:
     opts, args = getopt.getopt(sys.argv[1:], ":e:p:")
 except getopt.GetoptError:
@@ -27,9 +40,12 @@ for opt, value in opts:
     else:
         print("Parameter %s not recognized." % opt)
         sys.exit(2)
+print("Done.")
+print("")
 
 
 # FIND SIMULATION DIRECTORIES
+print("Collecting all simulations under experiment...")
 dirs = [os.path.join(expt_path, d) for d in os.listdir(expt_path)]
 dirs = [d for d in dirs if os.path.isdir(d)]
 complete_dirs = []
@@ -46,23 +62,28 @@ epoch_df.to_csv(os.path.join(output_path, "epoch_df.csv"), index=False)  # drop 
 max_t0 = epoch_df.t1.max()
 config = configparser.ConfigParser()
 config.read(param_path)
+print("Done.")
+print("")
 
 
 # SPECIFY BINNING PREFERENCES
 # TODO:
 #  - workflow for if `_samp_strat` != 'variable'
 obs_per_bin = 5
+print("Set number of observations per bin to: %d" % obs_per_bin)
+print("")
 
 
 # BIN PREVALENCE DATA
 # Determine bin size
-print("Binning Prevalence data.")
+print("Binning prevalence data...")
 prev_samp_strat = config.get('Sampling', 'prev_samp_rate')
 if prev_samp_strat == 'variable':
     prev_samp_freq = config.getint('Sampling', 'prev_samp_freq')  # sample ~once every `_samp_freq` days
     op_bin = obs_per_bin*prev_samp_freq  # Size of prevalence bin, in days
 
 # Defining the bin boundaries
+print("Defining bin boundaries...")
 op_bins = np.arange(0, epoch_df.iloc[0].t1, op_bin)
 for i, row in epoch_df[1:].iterrows():
     section = "Epoch_" + row['name']
@@ -96,21 +117,25 @@ ops_array, ops_mean, ops_std, ops_se = average_simulations(simulations_binned=op
                                                            keep_cols=op_keep_cols,
                                                            bin_midpoints=op_bin_midpoints)
 # Write prevalence
+print("Saving...")
 np.save(output_path + "/ops_array.npy", ops_array)
 ops_mean.to_csv(output_path + "/ops_mean.csv", index=False)
 ops_std.to_csv(output_path + "/ops_stds.csv", index=False)
 ops_se.to_csv(output_path + "/ops_se.csv", index=False)
+print("Done.")
+print("")
 
 
 # BIN GENETIC DATA
 # Load Data
-print("Binning Genetic data.")
+print("Binning genetic data...")
 # Determine bin size
 div_samp_strat = config.get('Sampling', 'div_samp_rate')
 if div_samp_strat == 'variable':
     div_samp_freq = config.getint('Sampling', 'div_samp_freq')  # sample ~once every `_samp_freq` days
     og_bin = obs_per_bin*div_samp_freq  # Size of prevalence bin, in days
 # Define the bin boundaries
+print("Defining bin boundaries...")
 og_bins = np.arange(0, epoch_df.iloc[0].t1, og_bin)
 for i, row in epoch_df[1:].iterrows():
     section = "Epoch_" + row['name']
@@ -146,16 +171,19 @@ ogs_array, ogs_mean, ogs_std, ogs_se = average_simulations(simulations_binned=og
                                                            keep_cols=og_keep_cols,
                                                            bin_midpoints=og_bin_midpoints)
 # Write genetic data
+print("Saving...")
 np.save(output_path + "/ogs_array.npy", ogs_array)
 ogs_mean.to_csv(output_path + "/ogs_mean.csv", index=False)
 ogs_std.to_csv(output_path + "/ogs_stds.csv", index=False)
 ogs_se.to_csv(output_path + "/ogs_se.csv", index=False)
+print("Done.")
+print("")
 
 
 # BIN SITE-FREQUENCIES
 track_sfs = config.getboolean('Sampling', 'track_sfs')
 if track_sfs:
-    print("Binning Site Frequency Spectra.")
+    print("Binning Site Frequency Spectra...")
     sfs_cols = np.load(os.path.join(complete_dirs[0], "bin_midpoints.npy"))  # they should be all the same
     sfss = load_simulations_from_npy(dirs=complete_dirs,
                                      file_name="binned_sfs_array.npy",
@@ -173,16 +201,19 @@ if track_sfs:
     sfs_mean = np.array(sfss_mean.drop("t0", 1), 'float')
     sfs_se = np.array(sfss_se.drop("t0", 1), 'float')
     # Write SFS data
+    print("Saving...")
     np.save(os.path.join(output_path, "sfs_t0.npy"), sfs_t0)
     np.save(os.path.join(output_path, "sfs_mean.npy"), sfs_mean)
     np.save(os.path.join(output_path, "sfs_se.npy"), sfs_se)
     np.save(os.path.join(output_path, "sfs_bins.npy"), sfs_bins)
+    print("Done.")
+    print("")
 
 
 # BIN LINKAGE-DECAY
 track_r2 = config.getboolean('Sampling', 'track_r2')
 if track_r2:
-    print("Binning Linkage Decay.")
+    print("Binning Linkage Decay...")
     r2_cols = np.load(os.path.join(complete_dirs[0], "bin_midpoints_r2.npy"))  # they should be all the same
     r2s = load_simulations_from_npy(dirs=complete_dirs,
                                     file_name="binned_r2_array.npy",
@@ -200,7 +231,16 @@ if track_r2:
     r2_mean = np.array(r2s_mean.drop("t0", 1), 'float')
     r2_se = np.array(r2s_se.drop("t0", 1), 'float')
     # Write r2 data
+    print("Saving...")
     np.save(os.path.join(output_path, "r2_t0.npy"), r2_t0)
     np.save(os.path.join(output_path, "r2_mean.npy"), r2_mean)
     np.save(os.path.join(output_path, "r2_se.npy"), r2_se)
     np.save(os.path.join(output_path, "r2_bins.npy"), r2_bins)
+    print("Done.")
+    print("")
+ 
+    
+print("-" * 80)
+print("Finished at: %s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+print("=" * 80)
+    
