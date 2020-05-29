@@ -10,42 +10,82 @@ import configparser
 # ================================================================= #
 
 
-def recombine(quantum, nsnps):
+def meiosis(quantum, nsnps, p_oocysts=0.5, bp_per_cM=20):
     """
-    Recombine the two parasite genomes from the
-    `quantum` of transmission
-
-    When a vector bites a host, some small number
-    (the `quantum`) of parasite genomes are trans-
-    ferred to the vector. During transfer (in the midgut),
-    recombination occurs. Technically, every oocyst
-    should undergo recombination. Here, only two
-    genomes from the quantum recombine.
-
+    Run P.falciparum meiosis on the `quantum` of 
+    strains that enter the vector, with...
+    
+    - Number of oocysts drawn from min[10, Geo(p_o)]
+    - Random pairings from `quantum` to produce zygotes
+    - Number of cross-overs max[1, Poi(bp_per_cM)]
+    - Random pairings from `bivalent` for cross-overs
+    - Recomb. rate uniform along chromosome
+    
+    ...and returning *all* progeny generated across
+    *all* oocysts.
+    
     Parameters
-        vv : ndarray, shape (k, nsnps)
-            Array of parasite genomes from which two will
-            be chosen to recombine. If `k` is < 2,
+        quantum : ndarray, shape (k, nsnps)
+            Array of parasite genomes which will
+            undergo meiosis. If `k` is < 2,
             no recombination occurs.
         nsnps : int
             Number of SNPs per parasite genome.
+        p_oocysts : float
+            Number of oocysts is drawn from
+            ~Geo(p_o), up to a maximum of 10.
+        bp_per_cM : float
+            Recombination rate. Default of results in an
+            average of one CO per bivalent when
+            `nsnps`=1000.
 
     Returns
-        quantum: ndarry, shape (k, nsnps)
-            Array of parasite genomes, after recombination.
+        progeny: ndarray, shape (n_oocysts*4, nsnps)
+            Array of parasite genomes, after they have
+            undergone meiosis.
+    
     """
+    
     if len(quantum) > 1:
-        ii = np.random.choice(a=len(quantum), size=2, replace=False)
-        pr = quantum[ii]  # two genomes to recombine
-        if not (pr[0] == pr[1]).all():
-            brk = np.random.choice(nsnps)
-            mei0 = np.concatenate([pr[0, :brk], pr[1, brk:]])
-            mei1 = np.concatenate([pr[1, :brk], pr[0, brk:]])
-            pr[0] = mei0
-            pr[1] = mei1
-
-            quantum[ii] = pr
-    return quantum
+        
+        # Compute cross-over rate *per bivalent*
+        mean_n_co = 2 * nsnps / (bp_per_cM * 100)
+        
+        # Draw no. oocysts, pair zygotes
+        n_oocysts = np.min([np.random.geometric(p_oocysts), 10])
+        i = np.random.choice(len(quantum), n_oocysts*2)
+        zygotes = list(zip(i[:-1:2], i[1::2]))
+        
+        # Run meiosis for each zygote
+        progeny = []
+        for zygote in zygotes:
+            parentals = np.copy(quantum[zygote, :])
+            
+            # Create bivalent
+            bivalent = np.zeros((2, nsnps, 2), dtype='int8')
+            bivalent[:, :, 0] = np.copy(parentals)
+            bivalent[:, :, 1] = np.copy(parentals)
+            
+            # Prepare crossover events
+            n_co = np.max([1, np.random.poisson(mean_n_co)])  # enforce at least 1 CO
+            co_brks = np.random.choice(nsnps, n_co)
+            co_brks.sort()
+            i = np.random.choice(2, n_co*2)
+            co_pairs = list(zip(i[:-1:2], i[1::2]))
+            
+            # Resolve crossovers
+            for brk, pair in zip(co_brks, co_pairs):
+                bivalent[[0, 1], :brk, pair] = bivalent[[1, 0], :brk, pair[::-1]]
+            
+            # Segregate & store progeny
+            progeny.append(np.vstack([bivalent[:, :, 1], bivalent[:, :, 0]]))
+        
+        progeny = np.vstack(progeny)
+    
+    else:
+        progeny = quantum
+    
+    return progeny
 
 
 def minimal_meiosis(quantum, nsnps, bp_per_cM=20):
@@ -65,6 +105,9 @@ def minimal_meiosis(quantum, nsnps, bp_per_cM=20):
     remain the same.
     
     Note the quantum array is modified here inplace.
+    
+    DEPRECIATED -- `simulation.py` now runs
+    `meiosis()`, see above.
     
     Parameters
         quantum : ndarray, shape (k, nsnps)
@@ -272,7 +315,7 @@ def infect_host(hh, vv, p_k=0.1):
             after it has been bitten by `vv`.
     """
 
-    k = np.max((1, np.random.binomial(10, p_k)))  # number to transfer
+    k = np.max((1, np.random.binomial(len(vv), p_k)))  # number to transfer
     quantum = vv[np.random.choice(len(vv), k, replace=False)]  # which to transfer
 
     if hh.sum() == 0:  # host is uninfected
@@ -289,13 +332,68 @@ def infect_host(hh, vv, p_k=0.1):
     return new
 
 
-def infect_vector(hh, vv, nsnps, p_k=0.1, recombination=True):
+def infect_vector(hh, vv, nsnps, p_k=0.1, p_oocysts=0.5, bp_per_cM=20):
+    """
+    Infect a vector with parasites from a host,
+    with parasites undergoing meiosis
+
+    Parameters
+        hh: ndarray, shape (nph, nsnps)
+            Array containing parasite genomes for single host.
+        vv: ndarray, shape (npv, nsnps)
+            Array containing parasite genomes for single vector.
+        nsnps: int
+            Number of SNPs per parasite genome.
+        p_k: float
+            Probability of transmission per parasite genome.
+        p_o : float
+            Number of oocysts is drawn from
+            ~Geo(p_o), up to a maximum of 10.
+        bp_per_cM : float
+            Recombination rate. Default of results in an
+            average of one CO per bivalent when
+            `nsnps`=1000.
+
+    Returns:
+        new: ndarray, shape (npv, nsnps)
+            Array containing new parasite genomes for vector,
+            after it has bitten `hh`.
+
+    """
+    
+    # Randomly choose `k` strains to transmit to vector
+    k = np.max((1, np.random.binomial(len(hh), p_k)))
+    quantum = hh[np.random.choice(len(hh), k, replace=False)]
+    
+    # Pass through meiosis
+    meiotic_progeny = meiosis(quantum, nsnps, p_oocysts, bp_per_cM)
+    m = len(meiotic_progeny)
+
+    # Establish new infection
+    if vv.sum() == 0:
+        rel_wts = np.zeros(m)
+        rel_wts[:] = 1.0 / m
+        pool = meiotic_progeny
+    else:
+        rel_wts = np.zeros(m + len(vv))
+        rel_wts[:m] = 0.5 / m
+        rel_wts[m:] = 0.5 / len(vv)
+        pool = np.concatenate((meiotic_progeny, vv), axis=0)
+
+    new = pool[np.random.choice(len(pool), len(vv), replace=True, p=rel_wts)]
+    return new
+
+
+def minimal_infect_vector(hh, vv, nsnps, p_k=0.1, recombination=True):
     """
     Infect a vector with parasites from a host, with optional
     recombination.
 
     If `recombination=True`, recombination occurs prior to replication
     in the vector (i.e. prior to filling of the `len(vv)` slots).
+    
+    
+    DEPRECIATED -- `simulation.py` now runs `infect_vector()`
 
     Parameters
         hh: ndarray, shape (nph, nsnps)

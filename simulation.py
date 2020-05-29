@@ -105,6 +105,7 @@ equil_params = calc_equil_params(params, derived_params)
 x_h = calc_x_h(**equil_params)
 x_v = calc_x_v(**equil_params)
 R0 = calc_R0(**equil_params)
+bp_per_cM = 2 * params["nsnps"] / 100  # scaled for 1 CO per bivalent
 # Options
 options = {}
 options['init_duration'] = eval(config.get('Options', 'init_duration'))
@@ -141,10 +142,14 @@ print("  No. Sites in Parasite Genome:", params['nsnps'])
 print("  Bite Rate per Vector:", params['bite_rate_per_v'])
 print("  Prob. Human Infected per Bite:", params['p_inf_h'])
 print("  Prob. Vector Infected per Bite:", params['p_inf_v'])
+print("  Prob. Parasite Strain Transmitted to Human:", params['p_k_h'])
+print("  Prob. Parasite Strain Transmitted to Vector:", params['p_k_h'])
+print("  Number of Oocysts Draw From Geometric with p =", params['p_oocysts'])
 print("  Drift Rate in Humans:", params['drift_rate_h'])
 print("  Drift Rate in Vectors:", params['drift_rate_v'])
 print("  Mutation Rate in Humans (theta):", params['theta_h'])
 print("  Mutation Rate in Vectors (theta):", params['theta_v'])
+print("  bp per cM [Scaled for 1 CO / bivalent]:", bp_per_cM)
 print("  Rate of Human Clearance (gamma):", params['gamma'])
 print("  Rate of Vector Clearance (eta):", params['eta'])
 print("  Lambda:", derived_params['lmbda'])
@@ -654,9 +659,13 @@ while t0 < max_t0:
             
             # Transfer (h -> v, v -> h)
             if np.random.uniform(0, 1) < params['p_inf_h']:
-                h_a[idh] = infect_host(hh=h_a[idh], vv=v_a[idv])
+                h_a[idh] = infect_host(hh=h_a[idh], vv=v_a[idv], p_k=params['p_k_h'])
             if np.random.uniform(0, 1) < params['p_inf_v']:  # sequential, so actually sampling from re-infected host
-                v_a[idv] = infect_vector(hh=h_a[idh], vv=v_a[idv], nsnps=params['nsnps'])
+                v_a[idv] = infect_vector(hh=h_a[idh], vv=v_a[idv], 
+                                         nsnps=params['nsnps'],
+                                         p_k=params['p_k_v'],
+                                         p_oocysts=params['p_oocysts'],
+                                         bp_per_cM=bp_per_cM)
         elif h[idh] == 0 and v[idv] == 1:
             # Evolve (v)       
             v_a[idv] = evolve_vector(vv=v_a[idv], ti=t0-t_v[idv],
@@ -666,7 +675,7 @@ while t0 < max_t0:
             
             # Transfer (v -> h)
             if np.random.uniform(0, 1) < params['p_inf_h']:
-                h_a[idh] = infect_host(hh=h_a[idh], vv=v_a[idv])
+                h_a[idh] = infect_host(hh=h_a[idh], vv=v_a[idv], p_k=params['p_k_h'])
                 h[idh] = 1 
                 t_h[idh] = t0
         elif h[idh] == 1 and v[idv] == 0:
@@ -678,7 +687,11 @@ while t0 < max_t0:
             
             # Transfer (h -> v)
             if np.random.uniform(0, 1) < params['p_inf_v']:
-                v_a[idv] = infect_vector(hh=h_a[idh], vv=v_a[idv], nsnps=params['nsnps'])
+                v_a[idv] = infect_vector(hh=h_a[idh], vv=v_a[idv], 
+                                         nsnps=params['nsnps'],
+                                         p_k=params['p_k_v'],
+                                         p_oocysts=params['p_oocysts'],
+                                         bp_per_cM=bp_per_cM)
                 v[idv] = 1
                 t_v[idv] = t0
     
@@ -703,7 +716,7 @@ while t0 < max_t0:
         # Transfer (v -> h)
         # Rate assumes bite was infectious, i.e. no `p_inf_h`
         # Vector comes from v_source
-        h_a[idh] = infect_host(hh=h_a[idh], vv=v_source[idv])
+        h_a[idh] = infect_host(hh=h_a[idh], vv=v_source[idv], p_k=params['p_k_h'])
         h[idh] = 1 
         t_h[idh] = t0
 
