@@ -1,4 +1,5 @@
 import os
+import sys
 from datetime import datetime
 
 print("=" * 80)
@@ -10,6 +11,7 @@ print("Operating system: %s" % os.uname().sysname)
 print("Machine: %s" % os.uname().machine)
 print("Started at: %s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 print("=" * 80)
+print("")
 
 # Input logs
 log_dir = "stdout_sim"
@@ -25,8 +27,8 @@ output_path = os.path.join(output_dir, output_fn)
 
 print("Parsing...")
 print("  Log directory: %s" % log_dir)
-print("  No. logs: %d" len(logs))
-print("  Output path: %s" % output_path
+print("  No. logs: %d" % len(logs))
+print("  Output path: %s" % output_path)
 with open(output_path, "w") as parsed_logs:
     # Create Header
     parsed_logs.write("Logs Parsed On: ")
@@ -65,8 +67,8 @@ with open(output_path, "w") as parsed_logs:
                     time_elapsed = line.strip().split(": ")[1]
                 elif "Simulation complete." in line:
                     complete = "True"
-          elif "Human parasite population currently extinct!" in line:
-              complete = "Extinct"
+                elif "Human parasite population currently extinct!" in line:
+                    complete = "Extinct"
         # Write
         values = [log, expt_name, param_set, output_dir, complete, time_elapsed]
         parsed_logs.write(row_format.format(values))
