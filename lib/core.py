@@ -15,7 +15,8 @@ def meiosis(quantum, nsnps, p_oocysts=0.5, bp_per_cM=20):
     Run P.falciparum meiosis on the `quantum` of 
     strains that enter the vector, with...
     
-    - Number of oocysts drawn from min[10, Geo(p_o)]
+    - OPTIONALLY: Number of oocysts drawn from min[10, Geo(p_o)]
+    - or 1 oocyst
     - Random pairings from `quantum` to produce zygotes
     - Number of cross-overs max[1, Poi(bp_per_cM)]
     - Random pairings from `bivalent` for cross-overs
@@ -31,9 +32,11 @@ def meiosis(quantum, nsnps, p_oocysts=0.5, bp_per_cM=20):
             no recombination occurs.
         nsnps : int
             Number of SNPs per parasite genome.
-        p_oocysts : float
+        p_oocysts : float in 0 < p <= 1
             Number of oocysts is drawn from
-            ~Geo(p_o), up to a maximum of 10.
+            ~Geo(p_o), up to a maximum of 10. Note 
+            that if p = 1, only a single oocyst
+            is drawn every time.
         bp_per_cM : float
             Recombination rate. Default of results in an
             average of one CO per bivalent when
@@ -51,8 +54,10 @@ def meiosis(quantum, nsnps, p_oocysts=0.5, bp_per_cM=20):
         # Compute cross-over rate *per bivalent*
         mean_n_co = 2 * nsnps / (bp_per_cM * 100)
         
-        # Draw no. oocysts, pair zygotes
+        # Draw no. oocysts
         n_oocysts = np.min([np.random.geometric(p_oocysts), 10])
+        
+        # Pair strains to create zygotes, 1 per oocyst
         i = np.random.choice(len(quantum), n_oocysts*2)
         zygotes = list(zip(i[:-1:2], i[1::2]))
         
@@ -61,25 +66,29 @@ def meiosis(quantum, nsnps, p_oocysts=0.5, bp_per_cM=20):
         for zygote in zygotes:
             parentals = np.copy(quantum[zygote, :])
             
-            # Create bivalent
-            bivalent = np.zeros((2, nsnps, 2), dtype='int8')
-            bivalent[:, :, 0] = np.copy(parentals)
-            bivalent[:, :, 1] = np.copy(parentals)
-            
-            # Prepare crossover events
-            n_co = np.max([1, np.random.poisson(mean_n_co)])  # enforce at least 1 CO
-            co_brks = np.random.choice(nsnps, n_co)
-            co_brks.sort()
-            i = np.random.choice(2, n_co*2)
-            co_pairs = list(zip(i[:-1:2], i[1::2]))
-            
-            # Resolve crossovers
-            for brk, pair in zip(co_brks, co_pairs):
-                bivalent[[0, 1], :brk, pair] = bivalent[[1, 0], :brk, pair[::-1]]
-            
-            # Segregate & store progeny
-            progeny.append(np.vstack([bivalent[:, :, 1], bivalent[:, :, 0]]))
+            if not (parentals[0] == parentals[1]).all(): # if identical, no need
+                # Create bivalent
+                bivalent = np.zeros((2, nsnps, 2), dtype='int8')
+                bivalent[:, :, 0] = np.copy(parentals)
+                bivalent[:, :, 1] = np.copy(parentals)
+
+                # Prepare crossover events
+                n_co = np.max([1, np.random.poisson(mean_n_co)])  # enforce at least 1 CO
+                co_brks = np.random.choice(nsnps, n_co)
+                co_brks.sort()
+                i = np.random.choice(2, n_co*2)
+                co_pairs = list(zip(i[:-1:2], i[1::2]))
+
+                # Resolve crossovers
+                for brk, pair in zip(co_brks, co_pairs):
+                    bivalent[[0, 1], :brk, pair] = bivalent[[1, 0], :brk, pair[::-1]]
+
+                # Segregate & store progeny
+                progeny.append(np.vstack([bivalent[:, :, 1], bivalent[:, :, 0]]))
+            else:
+                progeny.append(np.vstack([parentals, parentals]))
         
+        # Combine progeny across oocysts
         progeny = np.vstack(progeny)
     
     else:
