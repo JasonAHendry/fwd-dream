@@ -323,6 +323,8 @@ print("")
 # WRITE ALL PARAMETER FILES
 # Number of vectors
 print("Modifying Number of Vectors...")
+config = configparser.ConfigParser()
+config.read(base_corr_path)
 section = [s for s in config.sections() if config.has_option(s, "nv")][0]
 for val_ix, val in enumerate(nv_df["nv"]):
     config.set(section, "nv", str(val))  # CHANGE parameter value
@@ -336,6 +338,8 @@ print("")
 
 # Host Clearance Rate
 print("Modifying Host Clearance Rate...")
+config = configparser.ConfigParser()
+config.read(base_corr_path)
 section = [s for s in config.sections() if config.has_option(s, "gamma")][0]
 for val_ix, val in enumerate(gamma_df["gamma"]):
     config.set(section, "gamma", str(val))  # CHANGE parameter value
@@ -349,7 +353,9 @@ print("")
 
 # Biting Rate
 print("Modifying Vector Biting Rate...")
-section = [s for s in config.sections() if config.has_option(s, "gamma")][0]
+config = configparser.ConfigParser()
+config.read(base_corr_path)
+section = [s for s in config.sections() if config.has_option(s, "bite_rate_per_v")][0]
 for val_ix, val in enumerate(br_df["br"]):
     config.set(section, "bite_rate_per_v", str(val))  # CHANGE parameter value
     val_name = "%s%02d" % ("bite_rate_per_v", val_ix)  # this is preferable to the value, as it may be a float
@@ -435,8 +441,12 @@ config.set("Epoch_Crash", "duration", "%d" % t_equil)  # set duration of crash t
 # Modify Epochs
 # Number of vectors
 print("Creating insecticide intervention...")
+config.set("Epoch_InitVar", "adj_params", "nv")
+config.set("Epoch_InitVar", "adj_vals", "%d" % params["nv"])
 config.set("Epoch_Crash", "adj_params", "nv")
 config.set("Epoch_Crash", "adj_vals", "%d" % crash_nv)
+config.set("Epoch_CrashVar", "adj_params", "nv")
+config.set("Epoch_CrashVar", "adj_vals", "%d" % crash_nv)
 config.set("Epoch_Recovery", "adj_params", "nv")
 config.set("Epoch_Recovery", "adj_vals", "%d" % params["nv"])
 with open(os.path.join(output_dir, "param_insecticide.ini"), "w") as config_file:
@@ -446,8 +456,12 @@ print("")
 
 # Host Clearance Rate
 print("Creating artemisinin intervention...")
+config.set("Epoch_InitVar", "adj_params", "gamma")
+config.set("Epoch_InitVar", "adj_vals", "%f" % params["gamma"])
 config.set("Epoch_Crash", "adj_params", "gamma")
 config.set("Epoch_Crash", "adj_vals", "%f" % crash_gamma)
+config.set("Epoch_CrashVar", "adj_params", "gamma")
+config.set("Epoch_CrashVar", "adj_vals", "%f" % crash_gamma)
 config.set("Epoch_Recovery", "adj_params", "gamma")
 config.set("Epoch_Recovery", "adj_vals", "%f" % params["gamma"])
 with open(os.path.join(output_dir, "param_artemisinin.ini"), "w") as config_file:
@@ -457,8 +471,12 @@ print("")
 
 # Vector Biting Rate
 print("Creating bednet intervention...")
+config.set("Epoch_InitVar", "adj_params", "bite_rate_per_v")
+config.set("Epoch_InitVar", "adj_vals", "%f" % params["bite_rate_per_v"])
 config.set("Epoch_Crash", "adj_params", "bite_rate_per_v")
 config.set("Epoch_Crash", "adj_vals", "%f" % crash_br)
+config.set("Epoch_CrashVar", "adj_params", "bite_rate_per_v")
+config.set("Epoch_CrashVar", "adj_vals", "%f" % crash_br)
 config.set("Epoch_Recovery", "adj_params", "bite_rate_per_v")
 config.set("Epoch_Recovery", "adj_vals", "%f" % params["bite_rate_per_v"])
 with open(os.path.join(output_dir, "param_bednets.ini"), "w") as config_file:
