@@ -32,23 +32,23 @@ print("Parsing user inputs...")
 try:
     opts, args = getopt.getopt(sys.argv[1:], "n:c:i:") # [(opt, arg), (opt, arg), (opt, arg)]
 except getopt.GetoptError:
-    print("Option Error. Please conform to:")
-    print("-i <clonal/mixed/all>")
+    print("Option Error.")
 
-migration = False
 for opt, value in opts:
     if opt == "-n":
         params_name = value
-        output_dir = os.path.join("params", params_name)
+        output_dir = os.path.join("params", "storage", params_name)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         print("Parameter Collection Name:", params_name)
         print("Output Directory:", output_dir)
     elif opt == "-c":
         base_corr_path = value
+        os.system("cp %s %s" % (base_corr_path, os.path.join(output_dir, os.path.basename(base_corr_path))))
         print("Base Correlation Experiment Parameter Path:", base_corr_path)
     elif opt == "-i":
         base_intv_path = value
+        os.system("cp %s %s" % (base_intv_path, os.path.join(output_dir, os.path.basename(base_intv_path))))
         print("Base Intervention Experiment Parameter Path:", base_intv_path)
     else:
         print("Parameter %s not recognized." % opt)
@@ -307,6 +307,19 @@ with open(base_corr_path, "w") as config_file:
     config.write(config_file)
     
 
+                  
+                  
+# WRITE ALL DATA FRAMES
+print("Writing data frames...")
+nv_df.to_csv(os.path.join(output_dir, "nv_df.csv"), index=False)
+br_df.to_csv(os.path.join(output_dir, "br_df.csv"), index=False)
+gamma_df.to_csv(os.path.join(output_dir, "gamma_df.csv"), index=False)
+print("Done.")
+print("")
+      
+    
+    
+    
 # WRITE ALL PARAMETER FILES
 # Number of vectors
 print("Modifying Number of Vectors...")
