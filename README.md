@@ -1,6 +1,6 @@
 <p align="center"><img src="images/logo.png" alt="delve"></p>
 
-A **forward**-time simulation of malaria transmission and evolution: including **d**rift, **r**ecombination, **e**xtinction, **a**dmixture and **m**eiosis.
+A **forward**-time simulation of malaria transmission and evolution: including **d**rift, **r**ecolonisation, **e**xtinction, **a**dmixture and **m**eiosis.
 
 ## Install
 forward-dream is implemented in python and the dependencies can be installed using [conda](https://docs.conda.io/en/latest/):
@@ -11,6 +11,29 @@ cd fwd-dream
 conda env create
 conda activate dream
 ```
+
+## Basic usage
+
+First, activate the conda environment:
+
+```
+conda activate dream
+```
+
+Then, in the `/fwd-dream` directory, run:
+
+```
+python simulation.py -e <expt_name> -p <params/param_set.ini> -s <balanced/random/seed_dir>
+```
+
+The `-e` flag specifies your experiment name, e.g. `-e high-transmission`
+
+The `-p` flag the path to your parameter set, which is an `.ini` file in the `/params` directory. In brief, this is how you set all the model parameters for `forward-dream`, and also how you specify different "Epochs" -- i.e. change parameter values *during* a simulation. See `/params/README.txt` for more details.
+
+The `-s` flag specifies how the simulation should be seeded. At present, the simulation hard-coded to seeded with ten infected hosts (see line 328 of `simulation.py`), but the allelic states of the parasites can be `balanced`, `random`, or come from the output of another simulation `seed_dir`.
+
+The simulation will run printing diagnostics to `stdout` in your terminal. Outputs will be deposited in `/results/<expt_name>`. In particular, `op.csv` will contain information about prevalence of hosts and vectors during the simulation, and `og.csv` will contain information about the genetic diversity of the parasite population.
+
 
 ## Workflows
 
@@ -49,7 +72,7 @@ Another application of forward-dream is to explore how genetic diversity statist
 4. Run `/submit-simulation.sh`
   - Output: `results/2020-04-10_art-inv` will contain simulation outputs for 100 replicate intervention experiments.
 
-### Simulating migration from a source to a sink population
+### Simulating migration from a source to a sink population (beta)
 I have incorporated a simple migration framework into forward-dream that allows the migration of infections from source population to a sink population. This was designed with the aim to explore genetic diversity statistics in the context of a region with unstable malaria transmission (i.e. R_0 < 1) that receives regular migration from a stable (R_0 > 1) source population. The workflow requires running forward-dream twice: (i) for the source population, and *saving* time-stamped genomes throughout and (ii) for the sink population, specifying the path to the source population simulation's output directory with the `-m` flag, and specifying a migration rate. Below I try to explain in more detail.
 
 1. Create *two* parameter set files, one for the source and one for the sink population.
