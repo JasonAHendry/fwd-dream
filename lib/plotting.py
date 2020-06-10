@@ -3,6 +3,7 @@ import seaborn as sns
 import numpy as np
 import scipy
 import statsmodels.formula.api as smf
+from lib.preferences import *
 
 
 def get_boxplot_bands(ax, ols, x, alpha=0.05):
@@ -186,3 +187,146 @@ def plot_individual_timecourse(op, og, epoch_df,
                 axm.set_xlim(time_limits)
     
     return None
+
+def plot_crash_response(metric, ot, epoch_df, d, e, ax):
+    """
+    Plot the detection and equilibrium times for a given metric
+    for a given simulation
+    """
+    # Normalize time to start of crash
+    start = epoch_df.loc["Crash", "t0"]
+    t0 = ot["t0"] - start
+    
+    # Plot prevalence
+    ax.fill_between(x=t0, y1=0, y2=ot["HX"], 
+                    color="lightgrey", linewidth=0.8, 
+                    label="Host All")
+    ax.fill_between(x=t0, y1=0, y2=ot["VX"], 
+                    color="darkgrey", linewidth=0.8, 
+                    label="Vector All")
+    
+    # Delineate key epochs
+    ax.axvline(epoch_df.loc["Crash", "t0"] - start, 
+           color="grey", alpha=0.75,
+           linewidth=3,
+           zorder=2)
+    ax.axvline(epoch_df.loc["CrashVar", "t0"] - start, 
+               color="grey", alpha=0.75,
+               linewidth=3,
+               zorder=2)
+    ax.axvline(epoch_df.loc["Recovery", "t0"] - start, 
+               color="grey", alpha=0.75,
+               linewidth=3,
+               zorder=2)
+    
+    # Labels
+    ax.set_ylabel("Prevalence")
+    ax.set_xlabel("Time (years)")
+    
+    # Limits
+    time_limits = (epoch_df.loc["InitVar", "t0"], epoch_df.loc["CrashVar", "t1"]) - start
+    ax.set_xlim(time_limits)
+    ax.set_ylim((0, 0.8))
+    
+    # Ticks, x-axis
+    days_per_year = 365
+    years_per_major_tick = 10
+    ax.xaxis.set_major_locator(plt.MultipleLocator(days_per_year * years_per_major_tick))
+    ax.xaxis.set_minor_locator(plt.MultipleLocator(days_per_year))
+    ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, i : int(v / days_per_year)))
+    
+    # Twin axis
+    axm = ax.twinx()
+
+    # Plot Genetics
+    axm.plot(t0, ot[metric], color="steelblue", linewidth=0.75, alpha=0.75)
+    
+    # Labels
+    axm.set_ylabel(genetic_names[metric])
+    
+    # Limits
+    axm.set_xlim(time_limits)
+
+    # Demarcate detection
+    axm.axvline(d[metric], 
+                color="orange", alpha=0.75,
+                linewidth=3,
+                zorder=2)
+
+    axm.axvline(e[metric], 
+                color="red", alpha=0.75,
+                linewidth=3,
+                zorder=2)
+    
+    return None
+
+
+
+def plot_recovery_response(metric, ot, epoch_df, d, e, ax):
+    """
+    Plot the detection and equilibrium times for a given metric
+    for a given simulation
+    """
+    # Normalize time to start of crash
+    start = epoch_df.loc["Recovery", "t0"]
+    t0 = ot["t0"] - start
+    
+    # Plot prevalence
+    ax.fill_between(x=t0, y1=0, y2=ot["HX"], 
+                    color="lightgrey", linewidth=0.8, 
+                    label="Host All")
+    ax.fill_between(x=t0, y1=0, y2=ot["VX"], 
+                    color="darkgrey", linewidth=0.8, 
+                    label="Vector All")
+    
+    # Delineate key epochs
+    ax.axvline(epoch_df.loc["CrashVar", "t0"] - start, 
+           color="grey", alpha=0.75,
+           linewidth=3,
+           zorder=2)
+    ax.axvline(epoch_df.loc["Recovery", "t0"] - start, 
+               color="grey", alpha=0.75,
+               linewidth=3,
+               zorder=2)
+    
+    # Labels
+    ax.set_ylabel("Prevalence")
+    ax.set_xlabel("Time (years)")
+    
+    # Limits
+    time_limits = (epoch_df.loc["CrashVar", "t0"], epoch_df.loc["Recovery", "t1"]) - start
+    ax.set_xlim(time_limits)
+    ax.set_ylim((0, 0.8))
+    
+    # Ticks, x-axis
+    days_per_year = 365
+    years_per_major_tick = 10
+    ax.xaxis.set_major_locator(plt.MultipleLocator(days_per_year * years_per_major_tick))
+    ax.xaxis.set_minor_locator(plt.MultipleLocator(days_per_year))
+    ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, i : int(v / days_per_year)))
+    
+    # Twin axis
+    axm = ax.twinx()
+
+    # Plot Genetics
+    axm.plot(t0, ot[metric], color="steelblue", linewidth=0.75, alpha=0.75)
+    
+    # Labels
+    axm.set_ylabel(genetic_names[metric])
+    
+    # Limits
+    axm.set_xlim(time_limits)
+
+    # Demarcate detection
+    axm.axvline(d[metric], 
+                color="orange", alpha=0.75,
+                linewidth=3,
+                zorder=2)
+
+    axm.axvline(e[metric], 
+                color="red", alpha=0.75,
+                linewidth=3,
+                zorder=2)
+    
+    return None
+
