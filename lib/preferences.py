@@ -1,9 +1,12 @@
 import seaborn as sns
+import numpy as np
+import matplotlib as mpl
 
-# ---------------------------------
-# Genetic Metrics
-#
-# ---------------------------------
+
+
+
+# METRIC GROUPINGS
+ops_metrics = ["HX", "VX", "HmX", "VmX"]
 
 
 genetic_metrics = ["n_re_genomes", "n_mixed_genomes", "frac_mixed_genomes",
@@ -13,7 +16,20 @@ genetic_metrics = ["n_re_genomes", "n_mixed_genomes", "frac_mixed_genomes",
                    "n_barcodes", "single_barcodes", "frac_uniq_barcodes",
                    "n_variants", "n_segregating", "n_singletons",
                    "pi", "theta", "tajd"]
+
+
 ibd_metrics = ["avg_frac_ibd", "avg_n_ibd", "avg_l_ibd"]
+
+
+tight_metrics = ['frac_mixed_samples', 'mean_k',
+                 'n_segregating', 'n_singletons',
+                 'pi', 'theta', 'tajd',
+                 'avg_frac_ibd', 'avg_n_ibd', 'avg_l_ibd']
+
+
+
+
+# METRIC NAMES (FOR PLOTTING)
 genetic_names = {"n_re_genomes": "No. Genomes",
                  "n_mixed_genomes": "No. Mixed Genomes",
                  "frac_mixed_genomes": "Frac. Mixed Genomes",
@@ -35,16 +51,12 @@ genetic_names = {"n_re_genomes": "No. Genomes",
                  "avg_frac_ibd": "Avg. Frac. IBD",
                  "avg_n_ibd": "Avg. No. IBD Tracks",
                  "avg_l_ibd": "Avg. IBD Track Length (bp)"}
-genetic_alpha = 0.08
-n_se = 1.96
-se_alpha = 0.2
 
-ops_metrics = ["HX", "VX", "HmX", "VmX"]
+
 op_names = {"HX": "Host Prevalence", 
             "HmX": "Host Mixed Prevalence",
             "VX": "Vector Prevalence", 
             "VmX": "Vector Mixed Prevalence"}
-
 
 def remove_metrics(rmv, metrics):
     """
@@ -53,18 +65,33 @@ def remove_metrics(rmv, metrics):
     return [g for g in metrics if g not in rmv]
 
 
-tight_metrics = ['frac_mixed_samples', 'mean_k',
-                 'n_segregating', 'n_singletons',
-                 'pi', 'theta', 'tajd',
-                 'avg_frac_ibd', 'avg_n_ibd', 'avg_l_ibd']
 
 
-# ---------------------------------
-# Colours
-#
-# ---------------------------------
+# PRE-BAKED COLOUR SCHEMES
+prevalence_cols = ['#d73027','#fc8d59','#2166ac', '#67a9cf']
+prevalence_col_dt = dict(zip(["HX", "HmX", "VX", "VmX"], prevalence_cols))
+
+def create_shades(color, n, base="white"):
+    """
+    Create shades of a color
+    """
+    
+    color = np.array(mpl.colors.to_rgb(color))
+    base = np.array(mpl.colors.to_rgb(base))
+    fs = np.arange(n) / n
+    shades = [(1 - f) * color + f * base for f in fs]
+    
+    return [mpl.colors.to_hex(s) for s in shades]
+
+tight_metric_cols = sns.color_palette("viridis", len(tight_metrics))
+tight_metric_col_dt = dict(zip(["mean_k", "frac_mixed_samples",
+                                "pi", "theta", "tajd",
+                                "n_segregating", "n_singletons",
+                                "avg_l_ibd", "avg_frac_ibd", "avg_n_ibd"], 
+                               tight_metric_cols))
 
 
+# GROUPS (for colouring by group)
 genetic_grps = {"n_re_genomes": 1,
                 "n_mixed_genomes": 1,
                 "frac_mixed_genomes": 1,

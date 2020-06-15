@@ -110,6 +110,7 @@ def regress_violinplot(metric, x_h, df, ax, palette):
 
 
 def prevalence_trajectory_plot(ot, epoch_df, ax,
+                               col_dt,
                                norm_t0=None,
                                indicate_epochs=None,
                                indicate_equilibriums=None,
@@ -126,21 +127,22 @@ def prevalence_trajectory_plot(ot, epoch_df, ax,
     if norm_t0 is not None:
         start = epoch_df.loc[norm_t0]
     else:
-        start = 0
+        start = epoch_df.loc["init", "t0"]
     t0 = ot["t0"] - start
     
     
     # Host Prevalence
-    ax.plot(t0, ot["HX"], color="blue", linewidth=0.8, label="Host All")
-    ax.plot(t0, ot["HmX"], color="darkblue", linewidth=0.8, label="Host Mixed")
+    ax.plot(t0, ot["HX"], color=col_dt["HX"], linewidth=0.8, label="Host All")
+    ax.plot(t0, ot["HmX"], color=col_dt["HmX"], linewidth=0.8, label="Host Mixed")
 
     # Vector Prevalence
-    ax.plot(t0, ot["VX"], color="red", linewidth=0.8, label="Vector All")
-    ax.plot(t0, ot["VmX"], color="darkred", linewidth=0.8, label="Vector Mixed")
+    ax.plot(t0, ot["VX"], color=col_dt["VX"], linewidth=0.8, label="Vector All")
+    ax.plot(t0, ot["VmX"], color=col_dt["VmX"], linewidth=0.8, label="Vector Mixed")
     
         
     # Set limits
     ax.set_ylim((0, 1.0))
+    ax.set_yticks(np.arange(0, 1.2, 0.2))
     ax.set_xlim(time_limits - start)
     
     # Set ticks, x-axis
@@ -162,9 +164,8 @@ def prevalence_trajectory_plot(ot, epoch_df, ax,
             x = [epoch_df.loc[(epoch, "t0")] - start, epoch_df.loc[(epoch, "t1")] - start]
             h = [epoch_df.loc[(epoch, "x_h")], epoch_df.loc[(epoch, "x_h")]]
             v = [epoch_df.loc[(epoch, "x_v")], epoch_df.loc[(epoch, "x_v")]]
-            print(x, h)
-            ax.plot(x, h, linestyle="dashed", color="blue")
-            ax.plot(x, v, linestyle="dashed", color="red")
+            ax.plot(x, h, linestyle="dashed", color=col_dt["HX"])
+            ax.plot(x, v, linestyle="dashed", color=col_dt["VX"])
             
     return None
 
@@ -172,6 +173,7 @@ def prevalence_trajectory_plot(ot, epoch_df, ax,
 
 
 def prevalence_trajectory_average_plot(ot_mu, ot_se, epoch_df, ax,
+                                       col_dt,
                                        norm_t0=None,
                                        indicate_epochs=None,
                                        indicate_equilibriums=None,
@@ -188,7 +190,7 @@ def prevalence_trajectory_average_plot(ot_mu, ot_se, epoch_df, ax,
     if norm_t0 is not None:
         start = epoch_df.loc[norm_t0]
     else:
-        start = 0
+        start = epoch_df.loc["init", "t0"]
     t0 = ot_mu["t0"] - start
     
     
@@ -196,16 +198,16 @@ def prevalence_trajectory_average_plot(ot_mu, ot_se, epoch_df, ax,
     n_se = 1.96
     se_alpha = 0.25
     metrics = ["HX", "VX", "HmX", "VmX"]
-    cols = ["blue", "red", "darkblue", "darkred"]
-    for metric, col in zip(metrics, cols):
-        ax.plot(t0, ot_mu[metric], color=col, linewidth=0.8)
+    for metric in metrics:
+        ax.plot(t0, ot_mu[metric], color=col_dt[metric], linewidth=0.8)
         ax.fill_between(x=t0,
                         y1=ot_mu[metric] - ot_se[metric] * n_se,
                         y2=ot_mu[metric] + ot_se[metric] * n_se,
-                        color=col, alpha=se_alpha)
+                        color=col_dt[metric], alpha=se_alpha)
     
     # Set limits
     ax.set_ylim((0, 1.0))
+    ax.set_yticks(np.arange(0, 1.2, 0.2))
     ax.set_xlim(time_limits - start)
     
     # Set ticks, x-axis
@@ -228,8 +230,8 @@ def prevalence_trajectory_average_plot(ot_mu, ot_se, epoch_df, ax,
             h = [epoch_df.loc[(epoch, "x_h")], epoch_df.loc[(epoch, "x_h")]]
             v = [epoch_df.loc[(epoch, "x_v")], epoch_df.loc[(epoch, "x_v")]]
             print(x, h)
-            ax.plot(x, h, linestyle="dashed", color="blue")
-            ax.plot(x, v, linestyle="dashed", color="red")
+            ax.plot(x, h, linestyle="dashed", color=col_dt["HX"])
+            ax.plot(x, v, linestyle="dashed", color=col_dt["VX"])
             
     return None
 
@@ -255,14 +257,14 @@ def genetic_trajectory_plot(metric, ot, epoch_df,
     if norm_t0 is not None:
         start = epoch_df.loc[norm_t0]
     else:
-        start = 0
+        start = epoch_df.loc["init", "t0"]
     t0 = ot["t0"] - start
     
     
     # Plot genetic metric
     ax.plot(t0, ot[metric], 
             color=color, linewidth=0.75, 
-            alpha=0.75, zorder=1)
+            alpha=1.0, zorder=1)
     
     
     # Demarcate detection & equilibrium
@@ -314,7 +316,8 @@ def genetic_trajectory_plot(metric, ot, epoch_df,
     
     # Limits
     axm.set_xlim(time_limits - start)
-    axm.set_ylim((0, 0.8))
+    axm.set_ylim((0, 1.0))
+    axm.set_yticks(np.arange(0, 1.2, 0.2))
     
     return None
 
@@ -340,7 +343,7 @@ def genetic_trajectory_average_plot(metric, ot_mu, ot_se, epoch_df,
     if norm_t0 is not None:
         start = epoch_df.loc[norm_t0]
     else:
-        start = 0
+        start = epoch_df.loc["init", "t0"]
     t0 = ot_mu["t0"] - start
     
     
@@ -404,6 +407,7 @@ def genetic_trajectory_average_plot(metric, ot_mu, ot_se, epoch_df,
     # Limits
     axm.set_xlim(time_limits - start)
     axm.set_ylim((0, 1.0))
+    axm.set_yticks(np.arange(0, 1.2, 0.2))
     
     return None
 
