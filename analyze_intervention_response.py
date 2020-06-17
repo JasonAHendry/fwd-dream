@@ -69,6 +69,7 @@ analysis_metrics = ["HX", "VX",
                     'avg_frac_ibd', 'avg_n_ibd','avg_l_ibd']
 genetic_names.update({"mean_k": "C.O.I. ($k$)",
                       "pi": "Nucl. Diversity ($\pi$)"})
+response_dt = {}
 
 
 
@@ -109,6 +110,10 @@ ds = [d for d in ds if not np.isnan(d).any()]
 es = [e for e in es if not np.isnan(e).any()]
 detect_df = pd.concat(ds, 1).transpose()
 equil_df = pd.concat(es, 1).transpose()
+# Store medians
+response_dt["metric"] = detect_df.columns
+response_dt["crash_detect"] = detect_df.median().values
+response_dt["crash_equil"] = equil_df.median().values
 print("  Saving...")
 detect_df.to_csv(os.path.join(output_path, "crash_detection.csv"), index=False)
 equil_df.to_csv(os.path.join(output_path, "crash_equilibrium.csv"), index=False)
@@ -160,7 +165,17 @@ for ix in view:
     fig, axes = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
     
     for ax, metric in zip(axes.flatten(), metrics):
-        plot_crash_response(metric, ot, epoch_df, d, e, ax)
+        genetic_trajectory_plot(metric, ot, epoch_df,
+                                "steelblue", ax,
+                                norm_t0=("Crash", "t0"),
+                                indicate_epochs=[("InitVar", "t0"), ("Crash", "t0")],
+                                time_limits=epoch_df.loc["InitVar", "t0"] + (0, 100*365),
+                                t_detection=d,
+                                t_equilibrium=e,
+                                years_per_major_tick=10)
+        ax.set_ylabel(genetic_names[metric])
+        if metric == "avg_l_ibd":
+            ax.set_xlabel("Time [years]")
         
     if savefig:
         fig.savefig(os.path.join(example_path, "crash_%s") % sim, 
@@ -207,9 +222,24 @@ ds = [d for d in ds if not np.isnan(d).any()]
 es = [e for e in es if not np.isnan(e).any()]
 detect_df = pd.concat(ds, 1).transpose()
 equil_df = pd.concat(es, 1).transpose()
+# Store medians
+response_dt["recovery_detect"] = detect_df.median().values
+response_dt["recovery_equil"] = equil_df.median().values
 print("  Saving...")
 detect_df.to_csv(os.path.join(output_path, "recovery_detection.csv"), index=False)
 equil_df.to_csv(os.path.join(output_path, "recovery_equilibrium.csv"), index=False)
+print("Done.")
+print("")
+
+
+
+
+# SAVE MEDIANS
+print("Saving medians...")
+fn = os.path.join(output_path, "response_medians.csv")
+response_df = pd.DataFrame(response_dt)
+response_df.to_csv(fn)
+print("  to: %s" % fn)
 print("Done.")
 print("")
 
@@ -256,7 +286,17 @@ for ix in view:
     fig, axes = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
     
     for ax, metric in zip(axes.flatten(), metrics):
-        plot_recovery_response(metric, ot, epoch_df, d, e, ax)
+        genetic_trajectory_plot(metric, ot, epoch_df,
+                                "steelblue", ax,
+                                norm_t0=("Recovery", "t0"),
+                                indicate_epochs=[("CrashVar", "t0"), ("Recovery", "t0")],
+                                time_limits=epoch_df.loc["CrashVar", "t0"] + (0, 100*365),
+                                t_detection=d,
+                                t_equilibrium=e,
+                                years_per_major_tick=10)
+        ax.set_ylabel(genetic_names[metric])
+        if metric == "avg_l_ibd":
+            ax.set_xlabel("Time [years]")
         
     if savefig:
         fig.savefig(os.path.join(example_path, "recovery_%s") % sim, 
