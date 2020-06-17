@@ -103,6 +103,32 @@ def regress_violinplot(metric, x_h, df, ax, palette):
     return None
 
 
+def regress_scatterplot(metric, x_h, ot, ax, color, **kwargs):
+    """
+    Create a scatterplot with a regression line
+    
+    """
+    # Scatterplot
+    ax.scatter(x=x_h, y=metric,
+               c=[color]*len(ot),
+               data=ot, **kwargs)
+    ylims = ax.get_ylim() # store for later
+    xlims = ax.get_xlim()
+
+    # Linear Model
+    ols = smf.ols(metric + "~" + x_h, ot).fit()
+    x_, y_, conf_l, conf_u, pred_l, pred_u = get_boxplot_bands(ax, ols, ot[x_h])
+    ax.plot(x_, y_, color="darkgrey", zorder=-2)
+    ax.fill_between(x=x_, y1=conf_l, y2=conf_u, color='grey', alpha=0.5, zorder=-2)
+    ax.fill_between(x=x_, y1=pred_l, y2=pred_u, color='grey', alpha=0.25, zorder=-2)
+    ax.set_ylim(ylims)
+    ax.set_xlim(xlims)
+    # Legend
+    ax.annotate(xy=(0.05, 0.875), xycoords='axes fraction',
+                s="$ r^2 = $ %.02f" % ols.rsquared, fontsize=10,
+                bbox=dict(facecolor='white', edgecolor='grey'), zorder=5)
+
+
 # ================================================================================ #
 # Trajectory plots; longitudinal analysis of prevalence and genetic diversity
 # statistics
@@ -245,6 +271,7 @@ def genetic_trajectory_plot(metric, ot, epoch_df,
                             time_limits=None,
                             t_detection=None,
                             t_equilibrium=None,
+                            alpha=1.0,
                             years_per_major_tick=5):
     """
     Plot the trajectory of a genetic diversity
@@ -252,6 +279,9 @@ def genetic_trajectory_plot(metric, ot, epoch_df,
     
     
     """
+    
+    # Trim to reduce computational expense
+    ot = ot.query("@time_limits[0] <= t0 <= @time_limits[1]")
     
     # Normalize time to desired epoch
     if norm_t0 is not None:
@@ -264,7 +294,7 @@ def genetic_trajectory_plot(metric, ot, epoch_df,
     # Plot genetic metric
     ax.plot(t0, ot[metric], 
             color=color, linewidth=0.75, 
-            alpha=1.0, zorder=1)
+            alpha=alpha, zorder=1)
     
     
     # Demarcate detection & equilibrium
