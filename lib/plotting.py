@@ -223,9 +223,10 @@ def prevalence_trajectory_average_plot(ot_mu, ot_se, epoch_df, ax,
     # Plot prevalence
     n_se = 1.96
     se_alpha = 0.25
-    metrics = ["HX", "VX", "HmX", "VmX"]
+    metrics = ["HX", "HmX", "VX", "VmX"]
+    dt = {"HX": "Host All", "VX": "Vector All", "HmX": "Host Mixed", "VmX": "Vector Mixed"}
     for metric in metrics:
-        ax.plot(t0, ot_mu[metric], color=col_dt[metric], linewidth=0.8)
+        ax.plot(t0, ot_mu[metric], color=col_dt[metric], linewidth=0.8, label=dt[metric])
         ax.fill_between(x=t0,
                         y1=ot_mu[metric] - ot_se[metric] * n_se,
                         y2=ot_mu[metric] + ot_se[metric] * n_se,
