@@ -43,7 +43,12 @@ conda activate dream
 python simulation.py -e default -p params/param_default-example.ini -s balanced
 ```
 
-The simulation should now print some diagnostics to `stdout`. Once the simulation is done, you should be able to run the notebook `notebooks/sec0_plot-default-example.ipynb` to produce plots that recreate Figure 2 of the `forward-dream` manuscript.
+The simulation should now print some diagnostics to `stdout`. Once the simulation is done, you should be able to run the notebook `notebooks/sec0_plot-default-example.ipynb` to produce plots that recreate Figure 2 of the `forward-dream` manuscript:
+
+![fig-prevalence](figs/sec0_default-prevalence.png)
+![fig-genetics](figs/sec0_default-genetics.png)
+
+Note that ten years is not enough time for the population to reach genetic equilibrium. 
 
 
 ## Workflows
