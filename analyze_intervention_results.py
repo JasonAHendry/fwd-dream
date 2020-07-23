@@ -39,9 +39,9 @@ for opt, value in opts:
         print(" Binned Data Path:", bin_path)
         print(" Output Path:", output_path)
     elif opt == "-p":
-        param_file = value
+        param_path = value
+        param_file = os.path.basename(param_path)
         param_set = param_file.split("_")[1].split(".")[0]
-        param_path = os.path.join("params", param_file)
         print(" Parameter path:", param_path)
         print(" Parameter file:", param_file)
         print(" Parameter set:", param_set)
