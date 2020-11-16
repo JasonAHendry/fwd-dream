@@ -271,13 +271,12 @@ def calc_diversity_stats(pos, ac, verbose=False):
     if n_allele_types == 1:  # population clonal, f(x)'s would fail
         n_segregating = 0
         n_singletons = 0
-        statement = "  All genomes are identical!"
+        statement = "  Sample is clonal."
     else:
         n_segregating = ac.count_segregating()
-        n_singletons = ac.count_singleton(1)
-        statement = "  Unique genomes present."
+        n_singletons = (ac == 1).any(1).sum()
+        statement = "  Sample is not clonal."
 
-    n_variants = ac.count_variant()
     pi = allel.stats.diversity.sequence_diversity(pos, ac)
     theta = allel.stats.diversity.watterson_theta(pos, ac)
     tajd = allel.stats.diversity.tajima_d(ac)  # <4 samples, throws warning (NOT exception)
@@ -285,15 +284,13 @@ def calc_diversity_stats(pos, ac, verbose=False):
     if verbose:
         print("Diversity Metrics")
         print(statement)
-        print("  No. Variant Sites:", n_variants)
         print("  No. Segregating Sites:", n_segregating)
         print("  No. Singletons:", n_singletons)
         print("  Nucleotide Diversity (pi):", pi)
         print("  Watterson's Theta:", theta)
         print("  Tajima's D:", tajd)
 
-    div_stats = {"n_variants": n_variants,
-                 "n_segregating": n_segregating,
+    div_stats = {"n_segregating": n_segregating,
                  "n_singletons": n_singletons,
                  "pi": pi,
                  "theta": theta,
