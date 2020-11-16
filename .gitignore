@@ -4,9 +4,11 @@
 # Python
 __pycache__
 .ipynb_checkpoints
+*.pyc
 
 # Ignore all parameter sets, excluding those in publication
 params/*.ini
+params/*.csv
 !params/param_artemisinin.ini
 !params/param_bednets.ini
 !params/param_insecticide.ini
@@ -16,5 +18,13 @@ params/*.ini
 
 # Ignore all generated figures, excluding those from example
 figs/*.png
+figs/*.pdf
 !figs/sec0_default-genetics.png
 !figs/sec0_default-prevalence.png
+
+# Ignore .ai of logo
+images/*.ai
+
+# Ignore BMRC cluster specific folders
+stdout_sim
+stderr_sim
