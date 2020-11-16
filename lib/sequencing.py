@@ -1,4 +1,5 @@
 import numpy as np
+import itertools
 import allel
 import scipy.stats
 import configparser
@@ -301,9 +302,17 @@ def calc_diversity_stats(pos, ac, verbose=False):
 
 def get_ibd_segments(ibd):
     """
-    Return an array of IBD segment lengths,
-    given `ibd` a track that annotates whether
-    two genomes are IBD or not for each position
+    Given a boolean vector specifying whether
+    each SNP position carries the same allele,
+    return an array of identity track lengths
+    
+    Parameters
+        ibd: ndarray, dtype bool, shape (nsnps)
+            For each position in the genome, are
+            the alleles identical?
+    Returns
+        segs: ndarray, dtype int, shape(n_segs)
+            Return the length of IBD segments.
     """
     ll = []
     l = 0
@@ -314,37 +323,68 @@ def get_ibd_segments(ibd):
             ll.append(l)
             l = 0
     ll.append(l)  # append last segment
+    segs = np.array(ll, np.uint16)  # always positive, won't be >65K SNPs
 
-    return np.array([l for l in ll if l > 0])
+    return segs[segs > 0]  # only return if positive length
 
 
-def calc_ibd_statistics(genomes, nsnps):
+def calc_ibd_statistics(genomes):
     """
-    Return three IBD statistics,
-    i. The fraction IBD
-    ii. The mean IBD segement length
-    iii. The number of IBD segements
-    for every pair in a set of genomes
-    """
+    For every pair of genomes collected, return
+    three IBD summary statistics: 
+     - IBD fraction
+     - Mean IBD track length
+     - Number of IBD segments
 
-    n_genomes = genomes.shape[1]
-    n_pairs = int(n_genomes * (n_genomes - 1) / 2)
-    frac_ibd = np.zeros(n_pairs)
-    n_ibd = np.zeros(n_pairs)
+    Here, identity-by-descent (IBD) is approximated 
+    with identity-by-state (IBS). However, in an 
+    infinite-alleles model, IBS only occurs through
+    IBD as the same allele is never generated twice.
+    Thus if two samples carry the same allele,
+    it is through common inheritance.
+    
+    
+    Parameters
+        genomes: ndarray, shape (nsnps, ngenomes)
+            Array encoding a set of sequenced parasite
+            genomes.
+    
+    Returns
+        f_ibd: ndarray, float, shape (n_pairs)
+            Fraction IBD between every possible pair
+            of genomes. Length is the number of
+            pairs, i.e. n choose 2.
+        n_ibd: ndarray, int, shape (n_pairs)
+            Number of IBD segments between every
+            possible pair of genomes.
+        l_ibd: ndarray, float, shape (n_pairs)
+            Mean length of IBD segments between
+            every possible pair of genomes.
+    """
+    nsnps, ngenomes = genomes.shape
+    
+    # Prepare storage
+    n_pairs = int(ngenomes * (ngenomes - 1) / 2)
+    f_ibd = np.zeros(n_pairs)
     l_ibd = np.zeros(n_pairs)
-
-    ix = 0
-    for i in np.arange(n_genomes - 1):
-        for j in np.arange(i + 1, n_genomes):
-            ibd_state = genomes[:, i] == genomes[:, j]
-            ibd_segments = get_ibd_segments(ibd_state)
-            frac_ibd[ix] = ibd_state.sum() / float(nsnps)
-            n_ibd[ix] = len(ibd_segments)
-            l_ibd[ix] = ibd_segments.mean()
-
-            ix += 1
-
-    return frac_ibd, n_ibd, l_ibd
+    n_ibd = np.zeros(n_pairs)
+    
+    # Loop over all pairs of genomes
+    pairs = itertools.combinations(range(ngenomes), 2)
+    for ix, (i, j) in enumerate(pairs):
+        
+        # Compute IBD state and segments
+        ibd_state = genomes[:, i] == genomes[:, j]
+        ibd_segments = get_ibd_segments(ibd_state)
+        
+        # Compute IBD summary statistics
+        f_ibd[ix] = ibd_state.sum()
+        n_ibd[ix] = ibd_segments.shape[0]
+        l_ibd[ix] = ibd_segments.mean()
+        
+    f_ibd /= nsnps
+    
+    return f_ibd, n_ibd, l_ibd
 
 
 def calc_unfolded_sfs(ac, n, verbose=False):
