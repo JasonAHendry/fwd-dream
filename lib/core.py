@@ -196,23 +196,24 @@ def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, nsnps=0, back_mutation=False)
     """
     
     nreps = np.random.poisson(ti * drift_rate)  # number of reproductions
+    
     if nreps > 0:
-        # Prepare
-        s = np.random.choice(len(hh), size=(nreps, 2))  # strains 
-        m = np.random.uniform(size=nreps) < theta * nsnps  # mutations
-        m_ix = np.random.choice(nsnps, m.sum())  # mutation sites
-        # Sequentially run through events
+        # For each reproduction...
+        selected = np.random.choice(len(hh), size=(nreps, 2))  # select strains
+        mutations = np.random.uniform(size=nreps) < theta * nsnps  # determine if mutation
+        n_mutations = mutations.sum()
+        mutation_position = np.random.choice(nsnps, n_mutations)  # select mutation position
+        mutation_allele = np.random.uniform(0, 1, n_mutations)  # generate mutation allele
+        
+        # Sequentially simulate reproductions
         j = 0
-        for i in np.arange(nreps):
-            if m[i]:  # mutation
-                if back_mutation:
-                    hh[s[i, 0], m_ix[j]] = 3 - hh[s[i, 0], m_ix[j]]
-                else:
-                    hh[s[i, 0], m_ix[j]] = 2
+        for i, mutation in enumerate(mutations):
+            if mutation:
+                hh[selected[i, 0], mutation_position[j]] = mutation_allele[j]
                 j += 1
             else:  # drift
-                hh[s[i, 1]] = hh[s[i, 0]]
-    
+                hh[selected[i, 1]] = hh[selected[i, 0]]
+        
     return hh
 
 
@@ -243,23 +244,24 @@ def evolve_vector(vv, ti, theta=0.0, drift_rate=0.0, nsnps=0, back_mutation=Fals
     """
 
     nreps = np.random.poisson(ti * drift_rate)  # number of reproductions
+    
     if nreps > 0:
-        # Prepare
-        s = np.random.choice(len(vv), size=(nreps, 2))  # strains 
-        m = np.random.uniform(size=nreps) < theta * nsnps  # mutations
-        m_ix = np.random.choice(nsnps, m.sum())  # mutation sites
-        # Sequentially run through events
+        # For each reproduction...
+        selected = np.random.choice(len(vv), size=(nreps, 2))  # select strains
+        mutations = np.random.uniform(size=nreps) < theta * nsnps  # determine if mutation
+        n_mutations = mutations.sum()
+        mutation_position = np.random.choice(nsnps, n_mutations)  # select mutation position
+        mutation_allele = np.random.uniform(0, 1, n_mutations)  # generate mutation allele
+        
+        # Sequentially simulate reproductions
         j = 0
-        for i in np.arange(nreps):
-            if m[i]:  # mutation
-                if back_mutation:
-                    vv[s[i, 0], m_ix[j]] = 3 - vv[s[i, 0], m_ix[j]]
-                else:
-                    vv[s[i, 0], m_ix[j]] = 2
+        for i, mutation in enumerate(mutations):
+            if mutation:
+                vv[selected[i, 0], mutation_position[j]] = mutation_allele[j]
                 j += 1
             else:  # drift
-                vv[s[i, 1]] = vv[s[i, 0]]
-    
+                vv[selected[i, 1]] = vv[selected[i, 0]]
+        
     return vv
 
 
