@@ -219,7 +219,7 @@ def calc_k_stats(ks, verbose=False):
     return k_stats
 
 
-def get_barcodes(hap, verbose=False):
+def get_barcodes(genomes, verbose=False):
     """
     Get `barcodes` (=unique genomes/haplotypes)
     from the parasite haplotype array
@@ -229,16 +229,15 @@ def get_barcodes(hap, verbose=False):
     on SNP barcodes to track malaria prevalence changes.
 
     Parameters
-        hap: HaplotypeArray, shape (nsnps, n_genomes)
-            Array of allele indices for each parasite genome,
-            where ref=0 and alt=1.
-        verbose: bool
+        genomes: ndarray, shape (nsnps, n_genomes)
+            Array encoding a set of sequenced parasite
+            genomes.
     Returns
         barcode_counts: ndarray, shape (n_unique_genomes)
             Returns the counts for each unique genome in the
             population.
     """
-    barcode_counts = hap.distinct_counts()
+    barcode_counts = np.unique(genomes, axis=1, return_counts=True)[1]
     n_barcodes = len(barcode_counts)
     if verbose:
         print("Senegal Statistics")
