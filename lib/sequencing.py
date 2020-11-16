@@ -37,7 +37,7 @@ def detect_mixed(oo, detection_threshold=None):
     return ans
 
 
-def sequence_dna(hh, nsnps, detection_threshold=None):
+def sequence_dna(hh, detection_threshold=None):
     """
     Sequence parasite genomes within a single host
     reporting `k`, the number of strains present
@@ -61,6 +61,7 @@ def sequence_dna(hh, nsnps, detection_threshold=None):
         seqs: ndarray, shape(k, nsnps)
             Sequenced parasite genomes.
     """
+    nsnps = hh.shape[1]
     seqs = np.vstack(list({tuple(row) for row in hh}))
     k = seqs.shape[0]
     if k > 1 and detection_threshold is not None:  # now we check for enough differences
@@ -116,7 +117,7 @@ def collect_genomes(h, h_a, max_samples=None, detection_threshold=None, verbose=
 
     h_collect = h_a[np.random.choice(h_inf, max_samples, replace=False)]
     for hh in h_collect:
-        k, g = sequence_dna(hh, detection_threshold)
+        k, g = sequence_dna(hh=hh, detection_threshold=detection_threshold)
         ks.append(k)
         gs.append(g)
     genomes = np.vstack(gs).T  # transpose so rows=snps
@@ -322,7 +323,7 @@ def get_ibd_segments(ibd):
             ll.append(l)
             l = 0
     ll.append(l)  # append last segment
-    segs = np.array(ll, np.uint16)  # always positive, won't be >65K SNPs
+    segs = np.array(ll)  # always positive, won't be >65K SNPs
 
     return segs[segs > 0]  # only return if positive length
 
@@ -548,7 +549,7 @@ def store_genetics(ks, hap, pos, ac,
     og.loc[div_samp_ct]['single_barcodes'] = (barcode_counts == 1).sum()
     # IBD
     if track_ibd:
-        frac_ibd, n_ibd, l_ibd = calc_ibd_statistics(hap, nsnps=nsnps)
+        frac_ibd, n_ibd, l_ibd = calc_ibd_statistics(hap)
         og.loc[div_samp_ct]['avg_frac_ibd'] = frac_ibd.mean()
         og.loc[div_samp_ct]['avg_n_ibd'] = n_ibd.mean()
         og.loc[div_samp_ct]['avg_l_ibd'] = l_ibd.mean()
