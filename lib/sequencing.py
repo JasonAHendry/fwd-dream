@@ -36,17 +36,14 @@ def detect_mixed(oo, detection_threshold=None):
     return ans
 
 
-def sequence_dna(hh, detection_threshold=None):
+def sequence_dna(hh, nsnps, detection_threshold=None):
     """
     Sequence parasite genomes within a single host
     reporting `k`, the number of strains present
     and `seqs`, the sequences themselves
 
     Note that identical repeated parasite genomes are
-    reported only once by `sequence_dna()` and that the
-    parasite genomes, which are implemented as
-    (ref=1, alt=2) in the simulation, are returned
-    with ref=0, alt=1 from `sequence_dna()`.
+    reported only once by `sequence_dna()`
 
     Parameters
         hh: ndarray, shape (nph, nsnps)
@@ -63,14 +60,13 @@ def sequence_dna(hh, detection_threshold=None):
         seqs: ndarray, shape(k, nsnps)
             Sequenced parasite genomes.
     """
-    seqs = np.vstack(list({tuple(row) for row in hh})) - 1
+    seqs = np.vstack(list({tuple(row) for row in hh}))
     k = seqs.shape[0]
-    if detection_threshold is not None:  # now we check for enough differences
-        n_snps = float(seqs.shape[1])
+    if k > 1 and detection_threshold is not None:  # now we check for enough differences
         keep_indxs = [0]
         for j in np.arange(1, k):
-            n_diffs = (seqs[keep_indxs, :] != seqs[j]).sum(1)
-            if (n_diffs / n_snps >= detection_threshold).all():
+            ndiffs = (seqs[keep_indxs, :] != seqs[j]).sum(1)
+            if (ndiffs / nsnps >= detection_threshold).all():
                 keep_indxs.append(j)
         seqs = seqs[keep_indxs]
         k = seqs.shape[0]
