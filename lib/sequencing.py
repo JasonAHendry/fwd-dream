@@ -123,10 +123,35 @@ def collect_genomes(h, h_a, max_samples=None, detection_threshold=None, verbose=
     return ks, genomes
 
 
+def get_allele_counts(genomes):
+    """
+    Generate an allele count array
+    for a collection of genomes
+    
+    Parameters
+        genomes: ndarray, shape (nsnps, n_genomes)
+            Array encoding a set of sequenced parasite
+            genomes.
+    
+    Returns:
+        ac: AlleleCountArray, shape (nsnps, n_alleles)
+            Allele counts for every loci in `genomes`.
+            
+    """
+    nsnps, ngenomes = genomes.shape
+    ac = np.zeros((nsnps, ngenomes), 'int16')  # the maximum possible size
+    for i in np.arange(nsnps):
+        counts = np.unique(genomes[i], return_counts=True)[1]
+        n = len(counts)
+        ac[i, :n] = counts
+    ac = ac[:, ac.sum(0) > 0]  # remove columns with no alleles
+    return allel.AlleleCountsArray(ac)
+
+
 def gen_allel_datastructs(genomes):
     """
-    Generate three scikit-allel data structures
-    (HaplotypeArray, AlleleCountArray, and a vector
+    Generate scikit-allel data structures
+    (genomes, AlleleCountArray, and a vector
     of SNP positions) from sequenced parasite genomes
 
     Parameters
@@ -135,8 +160,9 @@ def gen_allel_datastructs(genomes):
             genomes.
 
     Returns
-        hap: HaplotypeArray, shape (nsnps, n_genomes)
-            Array of allele indices for each parasite genome,
+        genomes: ndarray, shape (nsnps, n_genomes)
+            Array encoding a set of sequenced parasite
+            genomes. for each parasite genome,
             where ref=0 and alt=1.
         ac: AlleleCountArray, shape (nsnps, 2)
             Allele counts computed from `hap`.
@@ -144,10 +170,10 @@ def gen_allel_datastructs(genomes):
             The position, as an integer, of each SNP
             in the parasite genome.
     """
-    hap = allel.HaplotypeArray(genomes)
-    ac = hap.count_alleles()
-    pos = np.arange(genomes.shape[0]) + 1
-    return hap, pos, ac
+    # hap = allel.HaplotypeArray(genomes), no longer possible
+    ac = get_allele_counts(genomes)
+    pos = np.arange(1, genomes.shape[0] + 1)
+    return genomes, pos, ac
 
 
 def calc_k_stats(ks, verbose=False):
