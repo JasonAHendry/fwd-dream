@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__
+.ipynb_checkpoints
+
+# Ignore all parameter sets, excluding those in publication
+params/*.ini
+!params/param_artemisinin.ini
+!params/param_bednets.ini
+!params/param_insecticide.ini
+!params/param_default-example.ini
+!params/param_seasonality.ini
+!params/README.txt
+
+# Ignore all generated figures, excluding those from example
+figs/*.png
+!figs/sec0_default-genetics.png
+!figs/sec0_default-prevalence.png
