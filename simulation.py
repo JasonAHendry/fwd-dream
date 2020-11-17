@@ -318,8 +318,8 @@ v = np.zeros(params['nv'], dtype=np.int8)  # now floating-point to support infin
 h = np.zeros(params['nh'], dtype=np.int8)
 h_a = np.zeros((params['nh'], params['nph'], params['nsnps']), dtype=np.float32)
 v_a = np.zeros((params['nv'], params['npv'], params['nsnps']), dtype=np.float32)
-t_h = np.zeros(params['nh'], dtype=np.float32)
-t_v = np.zeros(params['nv'], dtype=np.float32)
+t_h = np.zeros(params['nh'])
+t_v = np.zeros(params['nv'])
 print("Done.")
 print("")
 
@@ -330,9 +330,9 @@ h[:n_seed] = 1  # indicate who is infected with binary array
 v[:n_seed] = 1
 if seed_method == "random":  # all unique genomes
     h_a[:n_seed] = np.random.uniform(0, 1, size=(n_seed, params["nph"], params["nsnps"]))
-    v_a[:n_seed] = np.random.choice(0, 1, , size=(n_seed, params["npv"], params["nsnps"]))
+    v_a[:n_seed] = np.random.choice(0, 1, size=(n_seed, params["npv"], params["nsnps"]))
 elif seed_method == "balanced":  # all clonal genomes
-    seed_genome = np.zeros(params["nsnps"])
+    seed_genome = np.random.uniform(0, 1, size=params["nsnps"])
     #seed_genome[np.random.choice(params["nsnps"], size=int(params["nsnps"]
     h_a[:n_seed] = seed_genome
     v_a[:n_seed] = seed_genome
