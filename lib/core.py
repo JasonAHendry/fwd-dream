@@ -68,7 +68,7 @@ def meiosis(quantum, nsnps, p_oocysts=0.5, bp_per_cM=20):
             
             if not (parentals[0] == parentals[1]).all(): # if identical, no need
                 # Create bivalent
-                bivalent = np.zeros((2, nsnps, 2), dtype='int8')
+                bivalent = np.zeros((2, nsnps, 2), dtype=np.float32)  # needs to hold mutations
                 bivalent[:, :, 0] = np.copy(parentals)
                 bivalent[:, :, 1] = np.copy(parentals)
 
@@ -176,9 +176,9 @@ def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, nsnps=0, back_mutation=False)
     mutation
 
     Parameters
-        hh: ndarray, shape (npv, nsnps)
+        hh: ndarray, shape (nph, nsnps)
             Array containing parasite genomes for single host.
-        ti: float|
+        ti: float
             Amount of time to simulate forward, measured in days.
             I.e. difference between present time and last update.
         theta: float
@@ -200,7 +200,7 @@ def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, nsnps=0, back_mutation=False)
     if nreps > 0:
         # For each reproduction...
         selected = np.random.choice(len(hh), size=(nreps, 2))  # select strains
-        mutations = np.random.uniform(size=nreps) < theta * nsnps  # determine if mutation
+        mutations = np.random.uniform(size=nreps) < theta * nsnps  # True if mutation
         n_mutations = mutations.sum()
         mutation_position = np.random.choice(nsnps, n_mutations)  # select mutation position
         mutation_allele = np.random.uniform(0, 1, n_mutations)  # generate mutation allele
@@ -248,7 +248,7 @@ def evolve_vector(vv, ti, theta=0.0, drift_rate=0.0, nsnps=0, back_mutation=Fals
     if nreps > 0:
         # For each reproduction...
         selected = np.random.choice(len(vv), size=(nreps, 2))  # select strains
-        mutations = np.random.uniform(size=nreps) < theta * nsnps  # determine if mutation
+        mutations = np.random.uniform(size=nreps) < theta * nsnps  # True if mutation
         n_mutations = mutations.sum()
         mutation_position = np.random.choice(nsnps, n_mutations)  # select mutation position
         mutation_allele = np.random.uniform(0, 1, n_mutations)  # generate mutation allele
