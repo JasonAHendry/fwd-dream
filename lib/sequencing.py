@@ -1,3 +1,4 @@
+import random
 import numpy as np
 import itertools
 import allel
@@ -75,7 +76,7 @@ def sequence_dna(hh, detection_threshold=None):
     return k, seqs
 
 
-def collect_genomes(h, h_a, max_samples=None, detection_threshold=None, verbose=False):
+def collect_genomes(h_dt, max_samples=None, detection_threshold=None, verbose=False):
     """
     Collect parasite genomes from a population of infected
     human beings
@@ -100,28 +101,29 @@ def collect_genomes(h, h_a, max_samples=None, detection_threshold=None, verbose=
         genomes: ndarray, shape (nsnps, samples)
             All parasite genomes collected.
     """
+    
+    # Determine how many samples to collect
+    n_infected = len(h_dt.keys())
+    if max_samples is None or max_samples >= n_infected:
+        n_collect = n_infected
+    else:
+        n_collect = max_samples
+    
+    # Collect and sequence DNA of samples
+    ixs = []
     ks = []
     gs = []
-
-    h_inf = np.where(h == 1)[0]  # extract positions from tuple
-    if max_samples is not None:
-        if len(h_inf) < max_samples:
-            if verbose:
-                print("Not enough infected individuals to collect %d samples." % max_samples)
-                print("Collecting %d instead" % len(h_inf))
-            max_samples = len(h_inf)
-    else:  # if max_samples is None, we sample all infected hosts
-        max_samples = len(h_inf)
-        if verbose:
-            print("Sampling entire population of %d hosts." % max_samples)
-
-    h_collect = h_a[np.random.choice(h_inf, max_samples, replace=False)]
-    for hh in h_collect:
-        k, g = sequence_dna(hh=hh, detection_threshold=detection_threshold)
+    for idc in random.sample(h_dt.keys(), k=n_collect):
+        k, g = sequence_dna(hh=h_dt[idc], detection_threshold=detection_threshold)
         ks.append(k)
         gs.append(g)
+        ixs.extend([idc]*k)  # sample indices for each genome collected
+
+    # Convert to numpy arrays
     genomes = np.vstack(gs).T  # transpose so rows=snps
     ks = np.array(ks)
+    ixs = np.array(ixs)
+    
     return ks, genomes
 
 

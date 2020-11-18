@@ -167,7 +167,7 @@ def minimal_meiosis(quantum, nsnps, bp_per_cM=20):
 # ================================================================= #
 
 
-def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, nsnps=0, back_mutation=False):
+def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, nsnps=0):
     """
     Evolve the parasite genomes of a host forward `ti` days,
     simulating drift and mutation, and optionally
@@ -223,7 +223,7 @@ def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, nsnps=0, back_mutation=False)
     return hh
 
 
-def evolve_vector(vv, ti, theta=0.0, drift_rate=0.0, nsnps=0, back_mutation=False):
+def evolve_vector(vv, ti, theta=0.0, drift_rate=0.0, nsnps=0):
     """
     Evolve the parasite genomes of a vector forward `ti` days,
     simulating drift and mutation, and optionally
@@ -275,34 +275,26 @@ def evolve_vector(vv, ti, theta=0.0, drift_rate=0.0, nsnps=0, back_mutation=Fals
     return vv
 
 
-def evolve_all_hosts(h, h_a, tis, drift_rate=0.0, theta=0.0, nsnps=0, back_mutation=False):
+def evolve_all_hosts(h_dt, tis, drift_rate=0.0, theta=0.0, nsnps=0):
     """
-    Run `evolve_hosts()` on every infected host in `h_a`
+    Run `evolve_host()` on every infected host in `h_dt()`
     
-    See `evolve_hosts` for details.
-    
-    """
-    for idh in np.arange(h_a.shape[0]):
-        if h[idh] == 1:  # contains infection
-            h_a[idh] = evolve_host(hh=h_a[idh], ti=tis[idh],
-                       drift_rate=drift_rate, theta=theta,
-                       nsnps=nsnps, back_mutation=back_mutation)
-    return h_a
-    
-    
-def evolve_all_vectors(v, v_a, tis, drift_rate=0.0, theta=0.0, nsnps=0, back_mutation=False):
-    """
-    Run `evolve_vectors()` on every infected vector in `v_a`
-    
-    See `evolve_vectors` for details.
+    See `evolve_host` for details.
     
     """
-    for idv in np.arange(v_a.shape[0]):
-        if v[idv] == 1:  # contains infection
-            v_a[idv] = evolve_vector(vv=v_a[idv], ti=tis[idv],
-                       drift_rate=drift_rate, theta=theta,
-                       nsnps=nsnps, back_mutation=back_mutation)
-    return v_a
+    return {ix: evolve_host(hh=genomes, ti=tis[ix], drift_rate=drift_rate, theta=theta, nsnps=nsnps)
+            for ix, genomes in h_dt.items()}
+    
+    
+def evolve_all_vectors(v_dt, tis, drift_rate=0.0, theta=0.0, nsnps=0):
+    """
+    Run `evolve_vector()` on every infected vector in `v_dt()`s
+    
+    See `evolve_vector` for details.
+    
+    """
+    return {ix: evolve_vector(vv=genomes, ti=tis[ix], drift_rate=drift_rate, theta=theta, nsnps=nsnps)
+            for ix, genomes in v_dt.items()}
 
 
 # ================================================================= #
@@ -311,7 +303,7 @@ def evolve_all_vectors(v, v_a, tis, drift_rate=0.0, theta=0.0, nsnps=0, back_mut
 # ================================================================= #
 
 
-def infect_host(hh, vv, p_k=0.1):
+def infect_host(hh, vv, nph, p_k=0.1):
     """
     Infect a host with parasites from a vector
 
@@ -321,8 +313,10 @@ def infect_host(hh, vv, p_k=0.1):
 
 
     Parameters
-        hh: ndarray, shape (nph, nsnps)
-            Array containing parasite genomes for single host.
+        hh: None or ndarray, shape (nph, nsnps)
+            Either None, which indicates host is currently
+            uninfected, or an array containing parasite genomes 
+            for the host.
         vv: ndarray, shape (npv, nsnps)
             Array containing parasite genomes for single vector.
         p_k: float
@@ -339,21 +333,21 @@ def infect_host(hh, vv, p_k=0.1):
     k = np.max((1, np.random.binomial(len(vv), p_k)))  # number to transfer
     quantum = vv[np.random.choice(len(vv), k, replace=False)]  # which to transfer
 
-    if hh.sum() == 0:  # host is uninfected
+    if hh is None:  # host is uninfected
         rel_wts = np.zeros(k)
         rel_wts[:] = 1.0 / k
         pool = quantum
-    else:
+    else:  # superinfection
         rel_wts = np.zeros(k + len(hh))
         rel_wts[:k] = 0.5 / k
         rel_wts[k:] = 0.5 / len(hh)
         pool = np.concatenate((quantum, hh), axis=0)
 
-    new = pool[np.random.choice(len(pool), len(hh), replace=True, p=rel_wts)]
+    new = pool[np.random.choice(len(pool), nph, replace=True, p=rel_wts)]
     return new
 
 
-def infect_vector(hh, vv, nsnps, p_k=0.1, p_oocysts=0.5, bp_per_cM=20):
+def infect_vector(hh, vv, npv, nsnps, p_k=0.1, p_oocysts=0.5, bp_per_cM=20):
     """
     Infect a vector with parasites from a host,
     with parasites undergoing meiosis
@@ -391,17 +385,17 @@ def infect_vector(hh, vv, nsnps, p_k=0.1, p_oocysts=0.5, bp_per_cM=20):
     m = len(meiotic_progeny)
 
     # Establish new infection
-    if vv.sum() == 0:
+    if vv is None:  # vector is uninfected  
         rel_wts = np.zeros(m)
         rel_wts[:] = 1.0 / m
         pool = meiotic_progeny
-    else:
+    else:  # superinfection
         rel_wts = np.zeros(m + len(vv))
         rel_wts[:m] = 0.5 / m
         rel_wts[m:] = 0.5 / len(vv)
         pool = np.concatenate((meiotic_progeny, vv), axis=0)
 
-    new = pool[np.random.choice(len(pool), len(vv), replace=True, p=rel_wts)]
+    new = pool[np.random.choice(len(pool), npv, replace=True, p=rel_wts)]
     return new
 
 

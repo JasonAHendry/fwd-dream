@@ -318,8 +318,8 @@ if track_params:
 # DATA STRUCTURES
 v = np.zeros(params['nv'], dtype=np.int8)  # now floating-point to support infinite-alleles
 h = np.zeros(params['nh'], dtype=np.int8)
-h_a = np.zeros((params['nh'], params['nph'], params['nsnps']), dtype=np.float32)
-v_a = np.zeros((params['nv'], params['npv'], params['nsnps']), dtype=np.float32)
+h_dt = {}  # key, index of individual; value, parasite genomes
+v_dt = {}
 t_h = np.zeros(params['nh'])
 t_v = np.zeros(params['nv'])
 print("Done.")
@@ -329,29 +329,14 @@ print("")
 # SEED INFECTION
 n_seed = 10
 h[:n_seed] = 1  # indicate who is infected with binary array
-v[:n_seed] = 1
-if seed_method == "random":  # all unique genomes
-    h_a[:n_seed] = np.random.uniform(0, 1, size=(n_seed, params["nph"], params["nsnps"]))
-    v_a[:n_seed] = np.random.uniform(0, 1, size=(n_seed, params["npv"], params["nsnps"]))
-elif seed_method == "balanced":  # all clonal genomes
-    seed_genome = np.random.uniform(0, 1, size=params["nsnps"])
-    #seed_genome[np.random.choice(params["nsnps"], size=int(params["nsnps"]
-    h_a[:n_seed] = seed_genome
-    v_a[:n_seed] = seed_genome
-elif seed_method == "seed_dir":
-    seed_dir = options["seed_dir"]
-    seed_h_a = np.load(os.path.join(seed_dir, "h_a.npy"))
-    seed_h = np.load(os.path.join(seed_dir, "h.npy"))
-    print("Seeding from %s" % seed_dir)
-    assert seed_h.sum() >= n_seed
-    seed_ix = np.where(seed_h)[0]
-    seed_h_ix = np.random.choice(seed_ix, n_seed, replace=False)
-    seed_v_ix = np.random.choice(seed_ix, n_seed, replace=False)
-    h_a[:n_seed] = seed_h_a[seed_h_ix]
-    v_a[:n_seed] = seed_h_a[seed_v_ix]
+if seed_method == "unique":
+    # Each individual has a unique parasite genome, generated randomly
+    h_dt.update({i : np.random.uniform(0, 1, size=(params["nph"], params["nsnps"])) for i in range(n_seed)})
+elif seed_method == "clonal":
+    # All individuals begin with the same genome
+    h_dt.update({i : np.zeros((params["nph"], params["nsnps"])) for i in range(n_seed)})
 else:
-    h_a[:n_seed] = 1  # seed with parasite genomes
-    v_a[:n_seed] = 1
+    raise Exception("'seed_method' not recognised. Choose from 'unique' or 'clonal'.")
 h1 = np.sum(h == 1)
 v1 = np.sum(v == 1)
 print("Seeding simulation with %d infected humans" % h1)
@@ -401,13 +386,11 @@ while t0 < max_t0:
                     if params["nv"] > len(v):
                         n_missing_v = params["nv"] - len(v)
                         v = np.concatenate((v, np.zeros(n_missing_v, dtype='int8')))
-                        v_a = np.vstack((v_a, np.zeros((n_missing_v, params['npv'], params['nsnps']), dtype='int8')))
                         t_v = np.concatenate((t_v, np.zeros(n_missing_v)))
                     elif params["nv"] < len(v):
-                        iv = np.random.choice(len(v), params["nv"], replace=False)  # vectors we keep
-                        v = v[iv]
-                        v_a = v_a[iv]
-                        t_v = t_v[iv]
+                        v = v[:params["nv"]]  # the array is randomly ordered, so this is a random set
+                        v_dt = {ix: genomes for ix, genomes in v_dt.items() if ix < params["nv"]}
+                        t_v = t_v[:params["nv"]]
 
                 # Adjust sampling rates
                 if current_epoch.adj_prev_samp:
@@ -426,14 +409,15 @@ while t0 < max_t0:
 
                 if current_epoch.calc_genetics or current_epoch.collect_samples:
                     # To Present
-                    h_a = evolve_all_hosts(h=h, h_a=h_a, tis=t0-t_h, 
+                    h_dt = evolve_all_hosts(h_dt=h_dt, tis=t0-t_h, 
                                            drift_rate=params['drift_rate_h'], theta=params['theta_h'],
-                                           nsnps=params['nsnps'], back_mutation=options['back_mutation'])
+                                           nsnps=params['nsnps'])
                     t_h[:] = t0
-                    v_a = evolve_all_vectors(v=v, v_a=v_a, tis=t0-t_v, 
-                                             drift_rate=params['drift_rate_v'], theta=params['theta_v'],
-                                             nsnps=params['nsnps'], back_mutation=options['back_mutation'])
-                    t_v[:] = t0
+                    # don't need to update vectors since you are sampling from hosts
+#                     v_dt = evolve_all_vectors(v_dt=v_dt, tis=t0-t_v, 
+#                                              drift_rate=params['drift_rate_v'], theta=params['theta_v'],
+#                                              nsnps=params['nsnps'])
+#                     t_v[:] = t0
 
                     epoch_dir = os.path.join(out_path, current_epoch.name)
                     if not os.path.isdir(epoch_dir):
@@ -441,7 +425,7 @@ while t0 < max_t0:
 
                     # In both cases, need to collect genomes...
                     if h1 > 0:
-                        ks, genomes = collect_genomes(h, h_a,
+                        ks, genomes = collect_genomes(h_dt,
                                                       max_samples=options['max_samples'],
                                                       detection_threshold=options['detection_threshold'])
                         if current_epoch.collect_samples:
@@ -489,13 +473,11 @@ while t0 < max_t0:
                     if params["nv"] > len(v):
                         n_missing_v = params["nv"] - len(v)
                         v = np.concatenate((v, np.zeros(n_missing_v, dtype='int8')))
-                        v_a = np.vstack((v_a, np.zeros((n_missing_v, params['npv'], params['nsnps']), dtype='int8')))
                         t_v = np.concatenate((t_v, np.zeros(n_missing_v)))
                     elif params["nv"] < len(v):
-                        iv = np.random.choice(len(v), params["nv"], replace=False)  # vectors we keep
-                        v = v[iv]
-                        v_a = v_a[iv]
-                        t_v = t_v[iv]
+                        v = v[:params["nv"]]  # the array is randomly ordered, so this is a random set
+                        v_dt = {ix: genomes for ix, genomes in v_dt.items() if ix < params["nv"]}
+                        t_v = t_v[:params["nv"]]
 
                 tparams = t0
                 if track_params:
@@ -520,9 +502,11 @@ while t0 < max_t0:
         op.loc[prev_samp_ct]['VX'] = v1/float(params['nv'])
         op.loc[prev_samp_ct]['H1'] = h1
         op.loc[prev_samp_ct]['HX'] = h1/float(params['nh'])
-        op.loc[prev_samp_ct]['nHm'] = sum([detect_mixed(indv, options['detection_threshold']) for indv in h_a])
+        op.loc[prev_samp_ct]['nHm'] = sum([detect_mixed(genomes, options['detection_threshold']) 
+                                           for idh, genomes in h_dt.items()])
         op.loc[prev_samp_ct]['HmX'] = op.loc[prev_samp_ct]['nHm']/float(params['nh'])
-        op.loc[prev_samp_ct]['nVm'] = sum([detect_mixed(indv, options['detection_threshold']) for indv in v_a])
+        op.loc[prev_samp_ct]['nVm'] = sum([detect_mixed(genomes, options['detection_threshold']) 
+                                           for idv, genomes in v_dt.items()])
         op.loc[prev_samp_ct]['VmX'] = op.loc[prev_samp_ct]['nVm']/float(params['nv'])
         
         # Increment
@@ -538,14 +522,15 @@ while t0 < max_t0:
     # Sample Genetics
     if (t0 - tdiv) > div_samp_freq:
         # To present
-        h_a = evolve_all_hosts(h=h, h_a=h_a, tis=t0-t_h, 
+        h_dt = evolve_all_hosts(h_dt=h_dt, tis=t0-t_h, 
                                drift_rate=params['drift_rate_h'], theta=params['theta_h'],
-                               nsnps=params['nsnps'], back_mutation=options['back_mutation'])
+                               nsnps=params['nsnps'])
         t_h[:] = t0
-        v_a = evolve_all_vectors(v=v, v_a=v_a, tis=t0-t_v, 
-                                 drift_rate=params['drift_rate_v'], theta=params['theta_v'],
-                                 nsnps=params['nsnps'], back_mutation=options['back_mutation'])
-        t_v[:] = t0
+        # Don't need to update vectors since you are sampling from hosts
+#         v_dt = evolve_all_vectors(v_dt=v_dt, tis=t0-t_v, 
+#                                  drift_rate=params['drift_rate_v'], theta=params['theta_v'],
+#                                  nsnps=params['nsnps'], back_mutation=options['back_mutation'])
+#         t_v[:] = t0
 
         if div_samp_ct >= div_max_samps:
             print("Not enough space to sample genetic diversity!")
@@ -581,7 +566,7 @@ while t0 < max_t0:
         # Compute Genetics
         if h1 > 0:
             # Collect a sample of genomes
-            ks, genomes = collect_genomes(h, h_a, max_samples=options['max_samples'],
+            ks, genomes = collect_genomes(h_dt, max_samples=options['max_samples'],
                                           detection_threshold=options['detection_threshold'])
 
             # Create haplotype, position, and allele count arrays
@@ -605,6 +590,7 @@ while t0 < max_t0:
                                                   bins=bins_r2)
 
         # Track Allele Frequencies
+        # DEPRECIATED
         if track_allele_freqs:
             t0_freqs[div_samp_ct] = t0
             n_h_genomes[div_samp_ct] = h1*params['nph']
@@ -613,6 +599,7 @@ while t0 < max_t0:
             v_freqs[div_samp_ct] = v_a.sum((0, 1))
         
         # Store genomes
+        # DEPRECIATED
         if store_genomes:
             ix = np.random.choice(np.flatnonzero(v))  # randomly an infected vector to store
             v_store[div_samp_ct] = v_a[ix]
@@ -652,46 +639,46 @@ while t0 < max_t0:
         
         if h[idh] == 1 and v[idv] == 1:
             # Evolve (h, v)
-            h_a[idh] = evolve_host(hh=h_a[idh], ti=t0-t_h[idh],
+            h_dt[idh] = evolve_host(hh=h_dt[idh], ti=t0-t_h[idh],
                                    drift_rate=params['drift_rate_h'], theta=params['theta_h'],
-                                   nsnps=params['nsnps'], back_mutation=options['back_mutation'])
+                                   nsnps=params['nsnps'])
             t_h[idh] = t0
-            v_a[idv] = evolve_vector(vv=v_a[idv], ti=t0-t_v[idv],
+            v_dt[idv] = evolve_vector(vv=v_dt[idv], ti=t0-t_v[idv],
                                      drift_rate=params['drift_rate_v'], theta=params['theta_v'],
-                                     nsnps=params['nsnps'], back_mutation=options['back_mutation'])
+                                     nsnps=params['nsnps'])
             t_v[idv] = t0
             
             # Transfer (h -> v, v -> h)
             if random.random() < params['p_inf_h']:
-                h_a[idh] = infect_host(hh=h_a[idh], vv=v_a[idv], p_k=params['p_k_h'])
+                h_dt[idh] = infect_host(hh=h_dt[idh], vv=v_dt[idv], nph=params["nph"], p_k=params['p_k_h'])
             if random.random() < params['p_inf_v']:  # sequential, so actually sampling from re-infected host
-                v_a[idv] = infect_vector(hh=h_a[idh], vv=v_a[idv], 
+                v_dt[idv] = infect_vector(hh=h_dt[idh], vv=v_dt[idv], npv=params["npv"], 
                                          nsnps=params['nsnps'],
                                          p_k=params['p_k_v'],
                                          p_oocysts=params['p_oocysts'],
                                          bp_per_cM=bp_per_cM)
         elif h[idh] == 0 and v[idv] == 1:
             # Evolve (v)       
-            v_a[idv] = evolve_vector(vv=v_a[idv], ti=t0-t_v[idv],
+            v_dt[idv] = evolve_vector(vv=v_dt[idv], ti=t0-t_v[idv],
                                      drift_rate=params['drift_rate_v'], theta=params['theta_v'],
-                                     nsnps=params['nsnps'], back_mutation=options['back_mutation'])
+                                     nsnps=params['nsnps'])
             t_v[idv] = t0
             
             # Transfer (v -> h)
             if random.random() < params['p_inf_h']:
-                h_a[idh] = infect_host(hh=h_a[idh], vv=v_a[idv], p_k=params['p_k_h'])
+                h_dt[idh] = infect_host(hh=None, vv=v_dt[idv], nph=params['nph'], p_k=params['p_k_h'])
                 h[idh] = 1 
                 t_h[idh] = t0
         elif h[idh] == 1 and v[idv] == 0:
             # Evolve (h)          
-            h_a[idh] = evolve_host(hh=h_a[idh], ti=t0-t_h[idh],
+            h_dt[idh] = evolve_host(hh=h_dt[idh], ti=t0-t_h[idh],
                                    drift_rate=params['drift_rate_h'], theta=params['theta_h'],
-                                   nsnps=params['nsnps'], back_mutation=options['back_mutation'])
+                                   nsnps=params['nsnps'])
             t_h[idh] = t0
             
             # Transfer (h -> v)
             if random.random() < params['p_inf_v']:
-                v_a[idv] = infect_vector(hh=h_a[idh], vv=v_a[idv], 
+                v_dt[idv] = infect_vector(hh=h_dt[idh], vv=None, npv=params['npv'],
                                          nsnps=params['nsnps'],
                                          p_k=params['p_k_v'],
                                          p_oocysts=params['p_oocysts'],
@@ -700,15 +687,15 @@ while t0 < max_t0:
                 t_v[idv] = t0
     
     elif typ == 1:  # Host clears
-        idh = random.choice(np.flatnonzero(h))  # sample from infected
+        idh = random.choice(list(h_dt.keys()))  # sample from infected
+        h_dt.pop(idh)
         h[idh] = 0
-        h_a[idh] = 0
         t_h[idh] = 0
     
     elif typ == 2:  # Vector clears
-        idv = random.choice(np.flatnonzero(v))  # sample from infected
+        idv = random.choice(list(v_dt.keys()))  # sample from infected
+        v_dt.pop(idv)
         v[idv] = 0
-        v_a[idv] = 0
         t_v[idv] = 0
         
     elif typ == 3:  # migration
@@ -720,7 +707,7 @@ while t0 < max_t0:
         # Transfer (v -> h)
         # Rate assumes bite was infectious, i.e. no `p_inf_h`
         # Vector comes from v_source
-        h_a[idh] = infect_host(hh=h_a[idh], vv=v_source[idv], p_k=params['p_k_h'])
+        h_dt[idh] = infect_host(hh=h_dt[idh], vv=v_source[idv], p_k=params['p_k_h'])
         h[idh] = 1 
         t_h[idh] = t0
 
@@ -735,14 +722,15 @@ op = op.query("t0 > 0")
 og = og.query("t0 > 0")
 # To Present
 print("Bringing all infected host and vector populations to the present (day %.0f) ..." % t0)
-h_a = evolve_all_hosts(h=h, h_a=h_a, tis=t0-t_h, 
+h_dt = evolve_all_hosts(h_dt=h_dt, tis=t0-t_h, 
                        drift_rate=params['drift_rate_h'], theta=params['theta_h'],
-                       nsnps=params['nsnps'], back_mutation=options['back_mutation'])
+                       nsnps=params['nsnps'])
 t_h[:] = t0
-v_a = evolve_all_vectors(v=v, v_a=v_a, tis=t0-t_v, 
-                         drift_rate=params['drift_rate_v'], theta=params['theta_v'],
-                         nsnps=params['nsnps'], back_mutation=options['back_mutation'])
-t_v[:] = t0       
+# Don't need to update vectors since not collecting from
+# v_dt = evolve_all_vectors(v_dt=v_dt, tis=t0-t_v, 
+#                          drift_rate=params['drift_rate_v'], theta=params['theta_v'],
+#                          nsnps=params['nsnps'])
+# t_v[:] = t0       
 print("Done.")
 print("")
 
@@ -753,7 +741,7 @@ print("")
 print("Writing Outputs...")
 op.to_csv(os.path.join(out_path, "op.csv"), index=False)
 np.save(os.path.join(out_path, "h.npy"), h)
-np.save(os.path.join(out_path, "h_a.npy"), h_a)
+#np.save(os.path.join(out_path, "h_a.npy"), h_a)
 # adding a few parameters last min.
 og["n_fixed_ref"] = params['nsnps'] - og["n_variants"]  # Total SNPs - Variant Sites (Incl. Fixed)
 og["n_fixed_alt"] = og['n_variants'] - og["n_segregating"]  # Variant Sites (Incl. Fixed) - Variant (Not Fixed)
@@ -804,7 +792,7 @@ print("")
 print("Final Simulation State:")
 print("-"*80)
 if h1 > 0:
-    ks, genomes = collect_genomes(h, h_a,
+    ks, genomes = collect_genomes(h_dt,
                                   max_samples=options['max_samples'],
                                   detection_threshold=options['detection_threshold'])
     hap, pos, ac = gen_allel_datastructs(genomes)
