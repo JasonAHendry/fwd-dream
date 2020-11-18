@@ -1,3 +1,4 @@
+import random
 import numpy as np
 import allel
 import scipy.stats
@@ -195,24 +196,29 @@ def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, nsnps=0, back_mutation=False)
             after evolving.
     """
     
-    nreps = np.random.poisson(ti * drift_rate)  # number of reproductions
+    nh = len(hh)
+    nreps = np.random.poisson(ti * drift_rate)
     
-    if nreps > 0:
-        # For each reproduction...
-        selected = np.random.choice(len(hh), size=(nreps, 2))  # select strains
-        mutations = np.random.uniform(size=nreps) < theta * nsnps  # True if mutation
-        n_mutations = mutations.sum()
-        mutation_position = np.random.choice(nsnps, n_mutations)  # select mutation position
-        mutation_allele = np.random.uniform(0, 1, n_mutations)  # generate mutation allele
-        
-        # Sequentially simulate reproductions
-        j = 0
-        for i, mutation in enumerate(mutations):
-            if mutation:
-                hh[selected[i, 0], mutation_position[j]] = mutation_allele[j]
-                j += 1
+    if nreps > len(hh):
+        ix = list(range(nh))
+        for _ in range(nreps):
+            i = int(random.random() * nh)
+            if random.random() < theta * nsnps:  # mutation
+                hh[i, int(random.random() * nsnps)] = random.random()
             else:  # drift
-                hh[selected[i, 1]] = hh[selected[i, 0]]
+                j = int(random.random() * nh)
+                ix.append(ix[i])
+                ix.pop(j)
+        hh = hh[ix]
+        
+    elif nreps > 0:
+        for _ in range(nreps):
+            i = int(random.random() * nh)
+            if random.random() < theta * nsnps:  # mutation
+                hh[i, int(random.random() * nsnps)] = random.random()
+            else:  # drift
+                j = int(random.random() * nh)
+                hh[i] = hh[j]
         
     return hh
 
@@ -242,25 +248,29 @@ def evolve_vector(vv, ti, theta=0.0, drift_rate=0.0, nsnps=0, back_mutation=Fals
             Array containing parasite genomes for a single genome,
             after evolving.
     """
-
-    nreps = np.random.poisson(ti * drift_rate)  # number of reproductions
+    nv = len(vv)
+    nreps = np.random.poisson(ti * drift_rate)
     
-    if nreps > 0:
-        # For each reproduction...
-        selected = np.random.choice(len(vv), size=(nreps, 2))  # select strains
-        mutations = np.random.uniform(size=nreps) < theta * nsnps  # True if mutation
-        n_mutations = mutations.sum()
-        mutation_position = np.random.choice(nsnps, n_mutations)  # select mutation position
-        mutation_allele = np.random.uniform(0, 1, n_mutations)  # generate mutation allele
-        
-        # Sequentially simulate reproductions
-        j = 0
-        for i, mutation in enumerate(mutations):
-            if mutation:
-                vv[selected[i, 0], mutation_position[j]] = mutation_allele[j]
-                j += 1
+    if nreps > len(vv):
+        ix = list(range(nv))
+        for _ in range(nreps):
+            i = int(random.random() * nv)
+            if random.random() < theta * nsnps:  # mutation
+                vv[i, int(random.random() * nsnps)] = random.random()
             else:  # drift
-                vv[selected[i, 1]] = vv[selected[i, 0]]
+                j = int(random.random() * nv)
+                ix.append(ix[i])
+                ix.pop(j)
+        vv = vv[ix]
+        
+    elif nreps > 0:
+        for _ in range(nreps):
+            i = int(random.random() * nv)
+            if random.random() < theta * nsnps:  # mutation
+                vv[i, int(random.random() * nsnps)] = random.random()
+            else:  # drift
+                j = int(random.random() * nv)
+                vv[i] = vv[j]
         
     return vv
 
