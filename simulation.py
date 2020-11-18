@@ -1,7 +1,7 @@
 import os
 import errno
 import sys
-from datetime import datetime
+import datetime
 import re
 import time
 import getopt
@@ -9,6 +9,7 @@ import configparser
 import numpy as np
 import pandas as pd
 import scipy.stats
+import random
 import allel
 from collections import Counter
 import json
@@ -27,7 +28,7 @@ print("Command: %s" % " ".join(sys.argv))
 print("Run on host: %s" % os.uname().nodename)
 print("Operating system: %s" % os.uname().sysname)
 print("Machine: %s" % os.uname().machine)
-print("Started at: %s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+print("Started at: %s" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 print("=" * 80)
 
 
@@ -361,6 +362,7 @@ print("")
 # RUN
 print("Running simulation...")
 print("-"*80)
+start_time = time.time()
 trep = time.time()  # time of last report
 tparams = 0  # last time simulation parameters were changed
 tprev = 0  # last time prevalence was recorded
@@ -640,12 +642,16 @@ while t0 < max_t0:
     rates_total = rates.sum()
     
     # Move time forward until next event of type `typ`, based on population rates
-    t0 += np.random.exponential(scale=1/rates_total)  # scale gives expectation
-    typ = np.random.choice(4, size=1, p=rates/rates_total)
+    t0 += random.expovariate(rates_total)
+    typ = random.choices(range(4), weights=rates/rates_total, k=1)[0]
+#     t0 += np.random.exponential(scale=1/rates_total)  # scale gives expectation
+#     typ = np.random.choice(4, size=1, p=rates/rates_total)
     
     if typ == 0:  # Bite
-        idh = np.random.choice(params['nh'])
-        idv = np.random.choice(params['nv'])
+        idh = int(random.random() * params['nh'])
+        idv = int(random.random() * params['nv'])
+#         idh = np.random.choice(params['nh'])  # I think I should pre-select here
+#         idv = np.random.choice(params['nv'])  # pre-select, or different library
         
         if h[idh] == 1 and v[idv] == 1:
             # Evolve (h, v)
@@ -659,9 +665,9 @@ while t0 < max_t0:
             t_v[idv] = t0
             
             # Transfer (h -> v, v -> h)
-            if np.random.uniform(0, 1) < params['p_inf_h']:
+            if random.random() < params['p_inf_h']:
                 h_a[idh] = infect_host(hh=h_a[idh], vv=v_a[idv], p_k=params['p_k_h'])
-            if np.random.uniform(0, 1) < params['p_inf_v']:  # sequential, so actually sampling from re-infected host
+            if random.random() < params['p_inf_v']:  # sequential, so actually sampling from re-infected host
                 v_a[idv] = infect_vector(hh=h_a[idh], vv=v_a[idv], 
                                          nsnps=params['nsnps'],
                                          p_k=params['p_k_v'],
@@ -675,7 +681,7 @@ while t0 < max_t0:
             t_v[idv] = t0
             
             # Transfer (v -> h)
-            if np.random.uniform(0, 1) < params['p_inf_h']:
+            if random.random() < params['p_inf_h']:
                 h_a[idh] = infect_host(hh=h_a[idh], vv=v_a[idv], p_k=params['p_k_h'])
                 h[idh] = 1 
                 t_h[idh] = t0
@@ -687,7 +693,7 @@ while t0 < max_t0:
             t_h[idh] = t0
             
             # Transfer (h -> v)
-            if np.random.uniform(0, 1) < params['p_inf_v']:
+            if random.random() < params['p_inf_v']:
                 v_a[idv] = infect_vector(hh=h_a[idh], vv=v_a[idv], 
                                          nsnps=params['nsnps'],
                                          p_k=params['p_k_v'],
@@ -697,19 +703,19 @@ while t0 < max_t0:
                 t_v[idv] = t0
     
     elif typ == 1:  # Host clears
-        idh = np.random.choice(np.flatnonzero(h))  # sample from infected
+        idh = random.choice(np.flatnonzero(h))  # sample from infected
         h[idh] = 0
         h_a[idh] = 0
         t_h[idh] = 0
     
     elif typ == 2:  # Vector clears
-        idv = np.random.choice(np.flatnonzero(v))  # sample from infected
+        idv = random.choice(np.flatnonzero(v))  # sample from infected
         v[idv] = 0
         v_a[idv] = 0
         t_v[idv] = 0
         
     elif typ == 3:  # migration
-        idh = np.random.choice(params["nh"])  # any host may get infected
+        idh = int(random.random() * params['nh'])  # any host may get infected
 
         # Select the vector most recently stored
         idv = np.max(np.flatnonzero(t0_source < t0))
@@ -829,8 +835,14 @@ print("-"*80)
 print("Done.")
 print("")
 
-    
+# Save runtime
+end_time = time.time()
+runtime = str(datetime.timedelta(seconds=end_time - start_time))
+print("Simulation run-time (HH:MM:SS): %s" % runtime)
+json.dump({"runtime": runtime}, open(out_path + "/run_diagnostics.json", "w"))
+
+
 print("-" * 80)
-print("Finished at: %s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+print("Finished at: %s" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 print("=" * 80)
 
