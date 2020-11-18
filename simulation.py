@@ -2,6 +2,7 @@ import os
 import errno
 import sys
 import datetime
+import resource
 import re
 import time
 import getopt
@@ -331,7 +332,7 @@ h[:n_seed] = 1  # indicate who is infected with binary array
 v[:n_seed] = 1
 if seed_method == "random":  # all unique genomes
     h_a[:n_seed] = np.random.uniform(0, 1, size=(n_seed, params["nph"], params["nsnps"]))
-    v_a[:n_seed] = np.random.choice(0, 1, size=(n_seed, params["npv"], params["nsnps"]))
+    v_a[:n_seed] = np.random.uniform(0, 1, size=(n_seed, params["npv"], params["nsnps"]))
 elif seed_method == "balanced":  # all clonal genomes
     seed_genome = np.random.uniform(0, 1, size=params["nsnps"])
     #seed_genome[np.random.choice(params["nsnps"], size=int(params["nsnps"]
@@ -644,14 +645,10 @@ while t0 < max_t0:
     # Move time forward until next event of type `typ`, based on population rates
     t0 += random.expovariate(rates_total)
     typ = random.choices(range(4), weights=rates/rates_total, k=1)[0]
-#     t0 += np.random.exponential(scale=1/rates_total)  # scale gives expectation
-#     typ = np.random.choice(4, size=1, p=rates/rates_total)
     
     if typ == 0:  # Bite
         idh = int(random.random() * params['nh'])
         idv = int(random.random() * params['nv'])
-#         idh = np.random.choice(params['nh'])  # I think I should pre-select here
-#         idv = np.random.choice(params['nv'])  # pre-select, or different library
         
         if h[idh] == 1 and v[idv] == 1:
             # Evolve (h, v)
@@ -835,11 +832,14 @@ print("-"*80)
 print("Done.")
 print("")
 
-# Save runtime
+# Save run diagnostics
+peak_memory_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 10**6
 end_time = time.time()
 runtime = str(datetime.timedelta(seconds=end_time - start_time))
+print("Peak memory usage: %dMb" % peak_memory_mb)
 print("Simulation run-time (HH:MM:SS): %s" % runtime)
-json.dump({"runtime": runtime}, open(out_path + "/run_diagnostics.json", "w"))
+json.dump({"runtime": runtime, "peak_mem_mb": peak_memory_mb}, 
+          open(out_path + "/run_diagnostics.json", "w"))
 
 
 print("-" * 80)
