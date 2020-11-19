@@ -347,6 +347,17 @@ print("")
 
 # RUN
 print("Running simulation...")
+print("="*80)
+print("Day: Number of days since the simulation began")
+print("NH: Total number of hosts")
+print("NV: Total number of vectors")
+print("H1: Number of infected hosts")
+print("V1: Number of infected vectors")
+print("Hm: Number of hosts with a mixed infection")
+print("Vm: Number of vectors with a mixed infection")
+print("Elapsed (s): Seconds elapsed since last line was printed")
+print("-"*80)
+print("Day \t NH \t NV \t H1 \t V1 \t Hm \t Vm \t Elapsed (s) \t")
 print("-"*80)
 start_time = time.time()
 trep = time.time()  # time of last report
@@ -366,7 +377,7 @@ while t0 < max_t0:
             if t0 > epoch.t0 and not epoch.occurred:
                 epoch.occurred = True
                 current_epoch = epoch
-                print("-"*80)
+                print("~"*80)
                 print("Beginning %s Epoch" % current_epoch.name)
                 print("-"*80)
                 print("Adjusting Parameter(s):", current_epoch.adj_keys)
@@ -406,6 +417,8 @@ while t0 < max_t0:
                     print("... to:", div_samp_freq)
 
                 print("-"*80)
+                print("Day \t NH \t NV \t H1 \t V1 \t Hm \t Vm \t Elapsed (s) \t")
+                print("~"*80)
 
                 if current_epoch.calc_genetics or current_epoch.collect_samples:
                     # To Present
@@ -617,8 +630,14 @@ while t0 < max_t0:
 
     # Print a `report` to screen
     if gen % report_rate == 0:
-        print("t0: %.02f | V1: %d | H1: %d | nv: %d | bite_rate_per_v: %.02f |elapsed: %.02f" \
-              % (t0, v1, h1, params["nv"], params['bite_rate_per_v'], time.time() - trep))
+        nHm = sum([detect_mixed(genomes, options['detection_threshold']) for idh, genomes in h_dt.items()])
+        nVm = sum([detect_mixed(genomes, options['detection_threshold']) for idh, genomes in v_dt.items()])
+        print("%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%.02f" \
+              % (t0, 
+                 params["nh"], params["nv"], 
+                 h1, v1, 
+                 nHm, nVm,
+                 time.time() - trep))
         trep = time.time()
         
     # Adjust population rates
@@ -713,7 +732,7 @@ while t0 < max_t0:
 
     h1 = h.sum()
     v1 = v.sum()
-print("-"*80)
+print("="*80)
 print("Done.")
 print("")
 
@@ -790,7 +809,7 @@ print("")
 
 # Compute Genetics
 print("Final Simulation State:")
-print("-"*80)
+print("*"*80)
 if h1 > 0:
     ks, genomes = collect_genomes(h_dt,
                                   max_samples=options['max_samples'],
@@ -816,7 +835,7 @@ if h1 > 0:
 else:
     print("Human parasite population currently extinct!")
     print("... can't compute genetics.")
-print("-"*80)
+print("*"*80)
 print("Done.")
 print("")
 
@@ -825,7 +844,7 @@ peak_memory_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 10**6
 end_time = time.time()
 runtime = str(datetime.timedelta(seconds=end_time - start_time))
 print("Peak memory usage: %dMb" % peak_memory_mb)
-print("Simulation run-time (HH:MM:SS): %s" % runtime)
+print("Total simulation run-time (HH:MM:SS): %s" % runtime)
 json.dump({"runtime": runtime, "peak_mem_mb": peak_memory_mb}, 
           open(out_path + "/run_diagnostics.json", "w"))
 
