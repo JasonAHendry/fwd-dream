@@ -667,7 +667,7 @@ while t0 < max_t0:
             # Transfer (v -> h)
             if random.random() < params['p_inf_h']:
                 h_dt[idh] = infect_host(hh=None, vv=v_dt[idv], nph=params['nph'], p_k=params['p_k_h'])
-                h[idh] = 1 
+                h[idh] = 1
                 t_h[idh] = t0
         elif h[idh] == 1 and v[idv] == 0:
             # Evolve (h)          
