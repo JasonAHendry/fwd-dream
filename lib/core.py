@@ -169,47 +169,41 @@ def minimal_meiosis(quantum, nsnps, bp_per_cM=20):
 
 def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, nsnps=0):
     """
-    Evolve the parasite genomes of a host forward `ti` days,
-    simulating drift and mutation, and optionally
-    allowing for back mutation
-    
-    Implements a continuous-time Moran model with
-    mutation
+    Evolve parasite genomes of a host `hh` forward `ti` days
+    according to a Moran process parameterised by a `drift_rate` 
+    and mutation rate `theta`
 
     Parameters
-        hh: ndarray, shape (nph, nsnps)
-            Array containing parasite genomes for single host.
+        hh: ndarray, float, shape (nph, nsnps)
+            Array containing parasite genomes from single host.
         ti: float
-            Amount of time to simulate forward, measured in days.
-            I.e. difference between present time and last update.
+            Amount of time to simulate forward in days.
         theta: float
             Mutation probability per base per drift event.
         drift_rate: float
             Expected number of drift events per day.
         nsnps: int
             Number of SNPs per parasite genome.
-        back_mutation: bool
-            Allow for back mutation?
     Returns
-        hh: ndarray, shape (npv, nsnps)
-            Array containing parasite genomes for a single genome,
+        hh: ndarray, float, shape (nph, nsnps)
+            Array containing parasite genomes of the host,
             after evolving.
     """
     
     nh = len(hh)
     nreps = np.random.poisson(ti * drift_rate)
     
-    if nreps > len(hh):
-        ix = list(range(nh))
+    if nreps > len(hh):  # if many reproductions, try to minimise array copies
+        ix = list(range(nh))  # by building an index of parasite genomes
         for _ in range(nreps):
             i = int(random.random() * nh)
             if random.random() < theta * nsnps:  # mutation
-                hh[i, int(random.random() * nsnps)] = random.random()
+                hh[ix[i], int(random.random() * nsnps)] = random.random()
             else:  # drift
                 j = int(random.random() * nh)
-                ix.append(ix[i])
-                ix.pop(j)
-        hh = hh[ix]
+                ix.append(ix[i])  # an index is reproduced
+                ix.pop(j)  # and removed
+        hh = hh[ix]  # finally use index to collect final set of genomes
         
     elif nreps > 0:
         for _ in range(nreps):
@@ -225,27 +219,24 @@ def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, nsnps=0):
 
 def evolve_vector(vv, ti, theta=0.0, drift_rate=0.0, nsnps=0):
     """
-    Evolve the parasite genomes of a vector forward `ti` days,
-    simulating drift and mutation, and optionally
-    allowing for back mutation
+    Evolve parasite genomes of a vector `vv` forward `ti` days
+    according to a Moran process parameterised by a `drift_rate` 
+    and mutation rate `theta`
 
     Parameters
-        vv: ndarray, shape (npv, nsnps)
-            Array containing parasite genomes for single vector.
+        vv: ndarray, float, shape (nph, nsnps)
+            Array containing parasite genomes from single vector.
         ti: float
-            Amount of time to simulate forward, measured in days.
-            I.e. difference between present time and last update.
+            Amount of time to simulate forward in days.
         theta: float
             Mutation probability per base per drift event.
         drift_rate: float
             Expected number of drift events per day.
         nsnps: int
             Number of SNPs per parasite genome.
-        back_mutation: bool
-            Allow back mutation?
     Returns
-        vv: ndarray, shape (npv, nsnps)
-            Array containing parasite genomes for a single genome,
+        vv: ndarray, float, shape (nph, nsnps)
+            Array containing parasite genomes of the vector,
             after evolving.
     """
     nv = len(vv)
@@ -256,7 +247,7 @@ def evolve_vector(vv, ti, theta=0.0, drift_rate=0.0, nsnps=0):
         for _ in range(nreps):
             i = int(random.random() * nv)
             if random.random() < theta * nsnps:  # mutation
-                vv[i, int(random.random() * nsnps)] = random.random()
+                vv[ix[i], int(random.random() * nsnps)] = random.random()
             else:  # drift
                 j = int(random.random() * nv)
                 ix.append(ix[i])
