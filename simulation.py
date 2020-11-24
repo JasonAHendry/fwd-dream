@@ -371,6 +371,17 @@ div_samp_ct = 0  # count of number of diversity samples drawn
 while t0 < max_t0:
 
     gen += 1
+    
+    """
+    Epochs
+    
+    A simulation can pass through a series of Epochs
+    each with a distinct set of simulation parameters.
+    In the section below we move between Epochs and 
+    optionally collect genetic data at Epoch boundaries,
+    as specified by the parameter `.ini` file.
+    
+    """
 
     if any_epochs and t0 > init_t1:  # beyond initialization
         for epoch in epochs:
@@ -493,7 +504,18 @@ while t0 < max_t0:
                 if track_params:
                     t0_params.append(t0)
                     param_tracking.append(params.copy())
-
+    
+    """
+    Sampling the parasite population
+    
+    Prevalence and genetic data is collected longitudinally
+    during the simulation at a periodicity set by the user-
+    defined parameters `prev_samp_freq` and `div_samp_freq`; 
+    in the following section we collect information about 
+    the present-day prevalence and genetic diversity of the 
+    parasite population as required by these parameters.
+    
+    """
     # Sample Prevalence
     if (t0 - tprev) > prev_samp_freq:
         if prev_samp_ct >= prev_max_samps:
@@ -646,7 +668,6 @@ while t0 < max_t0:
     i.e. those that involve the transfer or clearance of malaria parasites. 
     Finally, we try and draw as few random numbers as possible to improve 
     performance.
-    
     
     """
     # Biting
@@ -802,8 +823,6 @@ h_dt = evolve_all_hosts(h_dt=h_dt, tis=t0-t_h,
 t_h[:] = t0   
 print("Done.")
 print("")
-
-
 
 
 # WRITE RESULTS
