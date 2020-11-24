@@ -402,6 +402,7 @@ while t0 < max_t0:
                         v = v[:params["nv"]]  # the array is randomly ordered, so this is a random set
                         v_dt = {ix: genomes for ix, genomes in v_dt.items() if ix < params["nv"]}
                         t_v = t_v[:params["nv"]]
+                    v1 = v.sum()  # recalculate number of infected vectors
 
                 # Adjust sampling rates
                 if current_epoch.adj_prev_samp:
@@ -486,6 +487,7 @@ while t0 < max_t0:
                         v = v[:params["nv"]]  # the array is randomly ordered, so this is a random set
                         v_dt = {ix: genomes for ix, genomes in v_dt.items() if ix < params["nv"]}
                         t_v = t_v[:params["nv"]]
+                    v1 = v.sum()  # recalculate number of infected vectors
 
                 tparams = t0
                 if track_params:
@@ -630,96 +632,159 @@ while t0 < max_t0:
                  time.time() - trep))
         trep = time.time()
         
-    # Adjust population rates
-    bite_rate = params['bite_rate_per_v']*params['nv']  # uninfected and infected bite
-    clear_rate_h = params['gamma']*h1  # changes with h1
+    """
+    Moving forward in time
+    
+    The simulation progresses through time as a parallel Poisson process.
+    Thus, the waiting time between events is exponentially distributed
+    with a rate parameter equal to the sum of the rates of the individual
+    events:
+    
+        event_rate_total = sum(event_rate_1, ..., event_rate_n)
+    
+    We can filter this process to only jump between events of interest, 
+    i.e. those that involve the transfer or clearance of malaria parasites. 
+    Finally, we try and draw as few random numbers as possible to improve 
+    performance.
+    
+    
+    """
+    # Biting
+    bite_rate = params['bite_rate_per_v']*params['nv']
+    all_possible_biting_events = params['nv']*params['nh']
+    infect_v = h1*(params['nv']-v1)*params['p_inf_v']
+    infect_h = v1*(params['nh']-h1)*params['p_inf_h']
+    superinfect_v = h1*v1*params['p_inf_v']
+    superinfect_h = h1*v1*params['p_inf_h']
+    superinfect_hv = h1*v1*params['p_inf_v']*params['p_inf_h']
+    interesting_biting_events = np.array([infect_v,
+                                          infect_h,
+                                          superinfect_v,
+                                          superinfect_h,
+                                          superinfect_hv])
+    interesting_biting_events *= bite_rate / all_possible_biting_events
+    # Clearance
+    clear_rate_h = params['gamma']*h1
     clear_rate_v = params['eta']*v1
-    migration_rate = params['migration_rate']
-    rates = np.array((bite_rate, clear_rate_h, clear_rate_v, migration_rate))
-    rates_total = rates.sum()
+    # Overall rate of events of interest
+    rates = np.concatenate([interesting_biting_events, [clear_rate_h, clear_rate_v]])
+    rates_total = rates.sum()  # -- will go to zero if extinction
     
-    # Move time forward until next event of type `typ`, based on population rates
+    # Move forward in time to next event
     t0 += random.expovariate(rates_total)
-    typ = random.choices(range(4), weights=rates/rates_total, k=1)[0]
     
-    if typ == 0:  # Bite
-        idh = int(random.random() * params['nh'])
-        idv = int(random.random() * params['nv'])
+    # Sample event type and simulate it
+    u = random.random()
+    p = rates.cumsum() / rates_total
+    
+    if u < p[0]:  # Infect vector
+        idh = list(h_dt.keys())[int(random.random() * h1)]
+        idv = random.choice(np.where(v==0)[0])
         
-        if h[idh] == 1 and v[idv] == 1:
-            # Evolve (h, v)
-            h_dt[idh] = evolve_host(hh=h_dt[idh], ti=t0-t_h[idh],
-                                   drift_rate=params['drift_rate_h'], theta=params['theta_h'],
-                                   nsnps=params['nsnps'])
-            t_h[idh] = t0
-            v_dt[idv] = evolve_vector(vv=v_dt[idv], ti=t0-t_v[idv],
-                                     drift_rate=params['drift_rate_v'], theta=params['theta_v'],
-                                     nsnps=params['nsnps'])
-            t_v[idv] = t0
-            
-            # Transfer (h -> v, v -> h)
-            if random.random() < params['p_inf_h']:
-                h_dt[idh] = infect_host(hh=h_dt[idh], vv=v_dt[idv], nph=params["nph"], p_k=params['p_k_h'])
-            if random.random() < params['p_inf_v']:  # sequential, so actually sampling from re-infected host
-                v_dt[idv] = infect_vector(hh=h_dt[idh], vv=v_dt[idv], npv=params["npv"], 
-                                         nsnps=params['nsnps'],
-                                         p_k=params['p_k_v'],
-                                         p_oocysts=params['p_oocysts'],
-                                         bp_per_cM=bp_per_cM)
-        elif h[idh] == 0 and v[idv] == 1:
-            # Evolve (v)       
-            v_dt[idv] = evolve_vector(vv=v_dt[idv], ti=t0-t_v[idv],
-                                     drift_rate=params['drift_rate_v'], theta=params['theta_v'],
-                                     nsnps=params['nsnps'])
-            t_v[idv] = t0
-            
-            # Transfer (v -> h)
-            if random.random() < params['p_inf_h']:
-                h_dt[idh] = infect_host(hh=None, vv=v_dt[idv], nph=params['nph'], p_k=params['p_k_h'])
-                h[idh] = 1
-                t_h[idh] = t0
-        elif h[idh] == 1 and v[idv] == 0:
-            # Evolve (h)          
-            h_dt[idh] = evolve_host(hh=h_dt[idh], ti=t0-t_h[idh],
-                                   drift_rate=params['drift_rate_h'], theta=params['theta_h'],
-                                   nsnps=params['nsnps'])
-            t_h[idh] = t0
-            
-            # Transfer (h -> v)
-            if random.random() < params['p_inf_v']:
-                v_dt[idv] = infect_vector(hh=h_dt[idh], vv=None, npv=params['npv'],
-                                         nsnps=params['nsnps'],
-                                         p_k=params['p_k_v'],
-                                         p_oocysts=params['p_oocysts'],
-                                         bp_per_cM=bp_per_cM)
-                v[idv] = 1
-                t_v[idv] = t0
+        # Evolve (h)          
+        h_dt[idh] = evolve_host(hh=h_dt[idh], ti=t0-t_h[idh],
+                                drift_rate=params['drift_rate_h'], theta=params['theta_h'],
+                                nsnps=params['nsnps'])
+        t_h[idh] = t0
+        
+        # Transfer (h -> v)
+        v_dt[idv] = infect_vector(hh=h_dt[idh], vv=None, npv=params['npv'],
+                                  nsnps=params['nsnps'],
+                                  p_k=params['p_k_v'],
+                                  p_oocysts=params['p_oocysts'],
+                                  bp_per_cM=bp_per_cM)
+        v[idv] = 1
+        t_v[idv] = t0
     
-    elif typ == 1:  # Host clears
-        idh = random.choice(list(h_dt.keys()))  # sample from infected
+    elif u < p[1]:  # Infect host
+        idh = random.choice(np.where(h==0)[0])
+        idv = list(v_dt.keys())[int(random.random() * v1)]
+        
+        # Evolve (v)       
+        v_dt[idv] = evolve_vector(vv=v_dt[idv], ti=t0-t_v[idv],
+                                  drift_rate=params['drift_rate_v'], theta=params['theta_v'],
+                                  nsnps=params['nsnps'])
+        t_v[idv] = t0
+        
+        # Transfer (v -> h)        
+        h_dt[idh] = infect_host(hh=None, vv=v_dt[idv], nph=params['nph'], p_k=params['p_k_h'])
+        h[idh] = 1
+        t_h[idh] = t0
+        
+    elif u < p[2]:  # Superinfect vector
+        idh = list(h_dt.keys())[int(random.random() * h1)]
+        idv = list(v_dt.keys())[int(random.random() * v1)]
+        
+        # Evolve (h, v)          
+        h_dt[idh] = evolve_host(hh=h_dt[idh], ti=t0-t_h[idh],
+                                drift_rate=params['drift_rate_h'], theta=params['theta_h'],
+                                nsnps=params['nsnps'])
+        t_h[idh] = t0
+        v_dt[idv] = evolve_vector(vv=v_dt[idv], ti=t0-t_v[idv],
+                                  drift_rate=params['drift_rate_v'], theta=params['theta_v'],
+                                  nsnps=params['nsnps'])
+        t_v[idv] = t0
+        
+        # Transfer (h -> v)
+        v_dt[idv] = infect_vector(hh=h_dt[idh], vv=v_dt[idv], npv=params['npv'],
+                                  nsnps=params['nsnps'],
+                                  p_k=params['p_k_v'],
+                                  p_oocysts=params['p_oocysts'],
+                                  bp_per_cM=bp_per_cM)
+    
+    elif u < p[3]:  # Superinfect host
+        idh = list(h_dt.keys())[int(random.random() * h1)]
+        idv = list(v_dt.keys())[int(random.random() * v1)]
+        
+        # Evolve (h, v)          
+        h_dt[idh] = evolve_host(hh=h_dt[idh], ti=t0-t_h[idh],
+                               drift_rate=params['drift_rate_h'], theta=params['theta_h'],
+                               nsnps=params['nsnps'])
+        t_h[idh] = t0
+        v_dt[idv] = evolve_vector(vv=v_dt[idv], ti=t0-t_v[idv],
+                                  drift_rate=params['drift_rate_v'], theta=params['theta_v'],
+                                  nsnps=params['nsnps'])
+        t_v[idv] = t0
+        
+        # Transfer (v -> h)        
+        h_dt[idh] = infect_host(hh=h_dt[idh], vv=v_dt[idv], nph=params['nph'], p_k=params['p_k_h'])
+        t_h[idh] = t0
+    
+    elif u < p[4]:  # Superinfect host and vector
+        idh = list(h_dt.keys())[int(random.random() * h1)]
+        idv = list(v_dt.keys())[int(random.random() * v1)]
+        
+        # Evolve (h, v)          
+        h_dt[idh] = evolve_host(hh=h_dt[idh], ti=t0-t_h[idh],
+                                drift_rate=params['drift_rate_h'], theta=params['theta_h'],
+                                nsnps=params['nsnps'])
+        t_h[idh] = t0
+        v_dt[idv] = evolve_vector(vv=v_dt[idv], ti=t0-t_v[idv],
+                                  drift_rate=params['drift_rate_v'], theta=params['theta_v'],
+                                  nsnps=params['nsnps'])
+        t_v[idv] = t0
+        
+        # Transfer (v -> h, h->v)
+        h_dt[idh] = infect_host(hh=h_dt[idh], vv=v_dt[idv], nph=params['nph'], p_k=params['p_k_h'])
+        v_dt[idv] = infect_vector(hh=h_dt[idh], vv=v_dt[idv], npv=params['npv'],
+                                  nsnps=params['nsnps'],
+                                  p_k=params['p_k_v'],
+                                  p_oocysts=params['p_oocysts'],
+                                  bp_per_cM=bp_per_cM)
+    
+    elif u < p[5]:  # Host clears
+        idh = list(h_dt.keys())[int(random.random() * h1)]
         h_dt.pop(idh)
         h[idh] = 0
         t_h[idh] = 0
     
-    elif typ == 2:  # Vector clears
-        idv = random.choice(list(v_dt.keys()))  # sample from infected
+    elif u < p[6]:  # Vector clears
+        idv = list(v_dt.keys())[int(random.random() * v1)]
         v_dt.pop(idv)
         v[idv] = 0
         t_v[idv] = 0
-        
-    elif typ == 3:  # migration
-        idh = int(random.random() * params['nh'])  # any host may get infected
 
-        # Select the vector most recently stored
-        idv = np.max(np.flatnonzero(t0_source < t0))
-
-        # Transfer (v -> h)
-        # Rate assumes bite was infectious, i.e. no `p_inf_h`
-        # Vector comes from v_source
-        h_dt[idh] = infect_host(hh=h_dt[idh], vv=v_source[idv], p_k=params['p_k_h'])
-        h[idh] = 1 
-        t_h[idh] = t0
-
+    # Recalculate number of infected hosts and vectors
     h1 = h.sum()
     v1 = v.sum()
 print("="*80)
