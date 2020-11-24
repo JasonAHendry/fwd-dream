@@ -421,16 +421,11 @@ while t0 < max_t0:
                 print("~"*80)
 
                 if current_epoch.calc_genetics or current_epoch.collect_samples:
-                    # To Present
+                    # Bring host parasite population to present before collecting samples
                     h_dt = evolve_all_hosts(h_dt=h_dt, tis=t0-t_h, 
                                            drift_rate=params['drift_rate_h'], theta=params['theta_h'],
                                            nsnps=params['nsnps'])
                     t_h[:] = t0
-                    # don't need to update vectors since you are sampling from hosts
-#                     v_dt = evolve_all_vectors(v_dt=v_dt, tis=t0-t_v, 
-#                                              drift_rate=params['drift_rate_v'], theta=params['theta_v'],
-#                                              nsnps=params['nsnps'])
-#                     t_v[:] = t0
 
                     epoch_dir = os.path.join(out_path, current_epoch.name)
                     if not os.path.isdir(epoch_dir):
@@ -534,16 +529,11 @@ while t0 < max_t0:
 
     # Sample Genetics
     if (t0 - tdiv) > div_samp_freq:
-        # To present
+        # Bring host parasite population to present before collecting samples
         h_dt = evolve_all_hosts(h_dt=h_dt, tis=t0-t_h, 
                                drift_rate=params['drift_rate_h'], theta=params['theta_h'],
                                nsnps=params['nsnps'])
         t_h[:] = t0
-        # Don't need to update vectors since you are sampling from hosts
-#         v_dt = evolve_all_vectors(v_dt=v_dt, tis=t0-t_v, 
-#                                  drift_rate=params['drift_rate_v'], theta=params['theta_v'],
-#                                  nsnps=params['nsnps'], back_mutation=options['back_mutation'])
-#         t_v[:] = t0
 
         if div_samp_ct >= div_max_samps:
             print("Not enough space to sample genetic diversity!")
@@ -739,17 +729,12 @@ print("")
 # Clean extra rows
 op = op.query("t0 > 0")
 og = og.query("t0 > 0")
-# To Present
-print("Bringing all infected host and vector populations to the present (day %.0f) ..." % t0)
+# Bring host parasite population to the present day
+print("Evolving all host parasites to the present (day %.0f) ..." % t0)
 h_dt = evolve_all_hosts(h_dt=h_dt, tis=t0-t_h, 
                        drift_rate=params['drift_rate_h'], theta=params['theta_h'],
                        nsnps=params['nsnps'])
-t_h[:] = t0
-# Don't need to update vectors since not collecting from
-# v_dt = evolve_all_vectors(v_dt=v_dt, tis=t0-t_v, 
-#                          drift_rate=params['drift_rate_v'], theta=params['theta_v'],
-#                          nsnps=params['nsnps'])
-# t_v[:] = t0       
+t_h[:] = t0   
 print("Done.")
 print("")
 
