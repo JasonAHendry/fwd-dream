@@ -4,6 +4,7 @@ import itertools
 import allel
 import scipy.stats
 import configparser
+from numba import jit
 
 
 # ================================================================= #
@@ -330,7 +331,114 @@ def get_ibd_segments(ibd):
     return segs[segs > 0]  # only return if positive length
 
 
+@jit(nopython=True)
+def get_ibd_segments_hmm(ibs, rho):
+    """
+    Given an IBS profile for two parasite genomes,
+    return a set of IBD tracks calculated using
+    a simple hidden Markov Model
+    
+    Parameters
+        ibs_state: ndarray, bool, shape (nsnps)
+            For each position in the genome report,
+            True if both parasite genomes carry the
+            same allele.
+        rho: float
+            The recombination rate between sites.
+            Assumed uniform across the genome.
+        theta: float
+            The coalescent mutation rate; classically
+            equal to twice the product of the effective 
+            population size and mutation rate.
+        tau: float
+            Indicates the time point after which all
+            alleles are considered unique; two alleles
+            are in IBD if they are copies of the same
+            ancestral allele that existed before `tau`,
+            i.e. MRCA existed before `tau`.
+    
+    Returns
+        ibd_segments: list containing length of IBD tracks
+    """
+    
+    # Parameters
+    nsnps = ibs.shape[0]
+    
+    # Prepare emission probabilities `e`
+    # Can include formal expressions for this later
+    emiss = np.array([[0.8, 0.2],  # not IBD
+                      [0.1, 0.9]]) # IBD
+    
+    # Prepare data structures
+    vt = emiss[ibs[0]]  # initialise
+    tb = np.zeros((2, nsnps), np.int8)
+    tb[1, 1:] = 1
+    wmx = vt.argmax()
+    vt /= vt[wmx]
+    vtn = vt * (1 - rho)
+    
+    # Iterate
+    for j in range(1, nsnps):
+        for i in range(2):
+            if vt[i] * (1 - rho) < rho:
+                vtn[i] = rho
+                tb[i, j] = wmx
+            else:
+                vtn[i] = vt[i] * (1 - rho)
+            vtn[i] *= emiss[ibs[j], i]
+        wmx = vtn.argmax()
+        vt = vtn / vtn[wmx]
+    
+    # Traceback to produce IBD segment list
+    state = vt.argmax()
+    l = state
+    ibd_segs = []
+    for j in range(2, nsnps):
+        state = tb[state, nsnps-j]
+        if state:
+            l += 1
+        elif l > 0:
+            ibd_segs.append(l)
+            l = 0
+    if l > 0: ibd_segs.append(l)  # append last segment
+    
+    return np.array(ibd_segs)
+
+
 def calc_ibd_statistics(genomes):
+    """
+    Calculate IBD statistics using a
+    simple hidden Markov Model
+    
+    """
+    
+    nsnps, ngenomes = genomes.shape
+    
+    # Prepare storage
+    n_pairs = int(ngenomes * (ngenomes - 1) / 2)
+    f_ibd = np.zeros(n_pairs)
+    l_ibd = np.zeros(n_pairs)
+    n_ibd = np.zeros(n_pairs)
+    
+    # Loop over all possible pairs of genomes
+    pairs = itertools.combinations(range(ngenomes), 2)
+    for ix, (i, j) in enumerate(pairs):
+        
+        # Compute IBD segements from IBS using simple HMM
+        ibs = (genomes[:, i] == genomes[:, j]).astype(np.int8)
+        ibd_segments = get_ibd_segments_hmm(ibs, rho=0.1)
+        
+        # Compute IBD summary statistics
+        f_ibd[ix] = ibd_segments.sum()
+        n_ibd[ix] = ibd_segments.shape[0]
+        l_ibd[ix] = ibd_segments.mean()
+        
+    f_ibd /= nsnps
+    
+    return f_ibd, n_ibd, l_ibd
+
+
+def calc_ibd_statistics_old(genomes):
     """
     For every pair of genomes collected, return
     three IBD summary statistics: 
@@ -552,6 +660,12 @@ def store_genetics(ks, hap, pos, ac,
     # IBD
     if track_ibd:
         frac_ibd, n_ibd, l_ibd = calc_ibd_statistics(hap)
+        
+        # NaNs can occur if there is no IBD, replace with zeros
+        frac_ibd[np.isnan(frac_ibd)] = 0
+        n_ibd[np.isnan(n_ibd)] = 0
+        l_ibd[np.isnan(l_ibd)] = 0
+        
         og.loc[div_samp_ct]['avg_frac_ibd'] = frac_ibd.mean()
         og.loc[div_samp_ct]['avg_n_ibd'] = n_ibd.mean()
         og.loc[div_samp_ct]['avg_l_ibd'] = l_ibd.mean()
