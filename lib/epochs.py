@@ -4,8 +4,68 @@ import scipy.stats
 import configparser
 from lib.diagnostics import *
 
+
 # ================================================================= #
-# Epochs
+# Update vector population
+#
+# ================================================================= #
+
+
+def update_vectors(nv, v, t_v, v_dt):
+    """
+    Update the current vector population such that
+    the number of vectors `nv` and the vector population
+    state data structures (`v`, `t_v` and `v_dt`) match
+    
+    This may involve either killing or creating vectors.
+    
+    Parameters
+        nv: int
+            The number of vectors that the simulation *should*
+            currently contain; i.e. the number given by the
+            parameter file as `params['nv']`. Note this may
+            change as the simulation passes through Epochs.
+        v: ndarray, int8, shape(n_vectors)
+            The infection status of all vectors.
+        t_v: ndarray, float32, shape(n_vectors)
+            The last time each vectors infection was
+            updated.
+        v_dt: dict, shape(n_infected_vectors)
+            keys: int
+                Indices for infected vectors.
+            values: ndarray, float32, shape(npv, nsnps)
+                Parasite genomes held by infected vectors.
+    
+    Returns:
+        v: ndarray, int8, shape(n_vectors)
+            The infection status of all vectors.
+        t_v: ndarray, float32, shape(n_vectors)
+            The last time each vectors infection was
+            updated.
+        v_dt: dict, shape(n_infected_vectors)
+            keys: int
+                Indices for infected vectors.
+            values: ndarray, float32, shape(npv, nsnps)
+                Parasite genomes held by infected vectors.
+    
+    """
+    
+    nv = int(nv)
+    if nv > len(v):  # Create vectors
+        n_missing_v = nv - len(v)
+        v = np.concatenate((v, np.zeros(n_missing_v, dtype='int8')))
+        t_v = np.concatenate((t_v, np.zeros(n_missing_v)))
+        
+    elif nv < len(v):  # Kill vectors
+        v = v[:nv]  # Random order, so this is a random subset
+        v_dt = {ix: genomes for ix, genomes in v_dt.items() if ix < nv}
+        t_v = t_v[:nv]
+        
+    return v, t_v, v_dt
+
+
+# ================================================================= #
+# Define Epoch Behaviour
 #
 # ================================================================= #
 
@@ -98,8 +158,8 @@ class Epoch(object):
 
         self.gen_rate = self.epoch_params['bite_rate_per_v'] * self.epoch_params['nv'] \
                         + self.epoch_params['gamma'] * h1 \
-                        + self.epoch_params['eta'] * v1 \
-                        + self.epoch_params["migration_rate"]  # include migration
+                        + self.epoch_params['eta'] * v1  # \
+                        #+ self.epoch_params["migration_rate"]  # include migration
         self.gens = self.telapse * self.gen_rate
 
     def set_approach(self, n_updates=50.0):

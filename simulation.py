@@ -404,15 +404,7 @@ while t0 < max_t0:
                 equil_params = calc_equil_params(params, derived_params)
 
                 if int(params["nv"]) != len(v):
-                    params["nv"] = int(params["nv"])
-                    if params["nv"] > len(v):
-                        n_missing_v = params["nv"] - len(v)
-                        v = np.concatenate((v, np.zeros(n_missing_v, dtype='int8')))
-                        t_v = np.concatenate((t_v, np.zeros(n_missing_v)))
-                    elif params["nv"] < len(v):
-                        v = v[:params["nv"]]  # the array is randomly ordered, so this is a random set
-                        v_dt = {ix: genomes for ix, genomes in v_dt.items() if ix < params["nv"]}
-                        t_v = t_v[:params["nv"]]
+                    v, t_v, v_dt = update_vectors(nv=params["nv"], v=v, t_v=t_v, v_dt=v_dt)
                     v1 = v.sum()  # recalculate number of infected vectors
 
                 # Adjust sampling rates
@@ -489,15 +481,7 @@ while t0 < max_t0:
                 equil_params = calc_equil_params(params, derived_params)
 
                 if int(params["nv"]) != len(v):
-                    params["nv"] = int(params["nv"])
-                    if params["nv"] > len(v):
-                        n_missing_v = params["nv"] - len(v)
-                        v = np.concatenate((v, np.zeros(n_missing_v, dtype='int8')))
-                        t_v = np.concatenate((t_v, np.zeros(n_missing_v)))
-                    elif params["nv"] < len(v):
-                        v = v[:params["nv"]]  # the array is randomly ordered, so this is a random set
-                        v_dt = {ix: genomes for ix, genomes in v_dt.items() if ix < params["nv"]}
-                        t_v = t_v[:params["nv"]]
+                    v, t_v, v_dt = update_vectors(nv=params["nv"], v=v, t_v=t_v, v_dt=v_dt)
                     v1 = v.sum()  # recalculate number of infected vectors
 
                 tparams = t0
