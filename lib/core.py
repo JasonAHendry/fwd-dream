@@ -3,6 +3,7 @@ import numpy as np
 import allel
 import scipy.stats
 import configparser
+from numba import jit
 
 
 # ================================================================= #
@@ -16,8 +17,7 @@ def meiosis(quantum, nsnps, p_oocysts=0.5, bp_per_cM=20):
     Run P.falciparum meiosis on the `quantum` of 
     strains that enter the vector, with...
     
-    - OPTIONALLY: Number of oocysts drawn from min[10, Geo(p_o)]
-    - or 1 oocyst
+    - Number of oocysts drawn from min[10, Geo(p_o)]
     - Random pairings from `quantum` to produce zygotes
     - Number of cross-overs max[1, Poi(bp_per_cM)]
     - Random pairings from `bivalent` for cross-overs
@@ -56,10 +56,10 @@ def meiosis(quantum, nsnps, p_oocysts=0.5, bp_per_cM=20):
         mean_n_co = 2 * nsnps / (bp_per_cM * 100)
         
         # Draw no. oocysts
-        n_oocysts = np.min([np.random.geometric(p_oocysts), 10])
+        n_oocysts = min([np.random.geometric(p_oocysts), 10])
         
         # Pair strains to create zygotes, 1 per oocyst
-        i = np.random.choice(len(quantum), n_oocysts*2)
+        i = random.choices(range(len(quantum)), k=n_oocysts*2)
         zygotes = list(zip(i[:-1:2], i[1::2]))
         
         # Run meiosis for each zygote
@@ -69,15 +69,15 @@ def meiosis(quantum, nsnps, p_oocysts=0.5, bp_per_cM=20):
             
             if not (parentals[0] == parentals[1]).all(): # if identical, no need
                 # Create bivalent
-                bivalent = np.zeros((2, nsnps, 2), dtype=np.float32)  # needs to hold mutations
+                bivalent = np.zeros((2, nsnps, 2))  # needs to hold mutations
                 bivalent[:, :, 0] = np.copy(parentals)
                 bivalent[:, :, 1] = np.copy(parentals)
 
                 # Prepare crossover events
-                n_co = np.max([1, np.random.poisson(mean_n_co)])  # enforce at least 1 CO
-                co_brks = np.random.choice(nsnps, n_co)
+                n_co = max([1, np.random.poisson(mean_n_co)])  # enforce at least 1 CO
+                co_brks = random.choices(range(nsnps), k=n_co)
                 co_brks.sort()
-                i = np.random.choice(2, n_co*2)
+                i = random.choices(range(2), k=n_co*2)
                 co_pairs = list(zip(i[:-1:2], i[1::2]))
 
                 # Resolve crossovers
@@ -167,6 +167,7 @@ def minimal_meiosis(quantum, nsnps, bp_per_cM=20):
 # ================================================================= #
 
 
+@jit(nopython=True)
 def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, nsnps=0):
     """
     Evolve parasite genomes of a host `hh` forward `ti` days
@@ -194,18 +195,6 @@ def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, nsnps=0):
     nreps = np.random.poisson(ti * drift_rate)
     
     if nreps > len(hh):  # if many reproductions, try to minimise array copies
-        ix = list(range(nh))  # by building an index of parasite genomes
-        for _ in range(nreps):
-            i = int(random.random() * nh)
-            if random.random() < theta * nsnps:  # mutation
-                hh[ix[i], int(random.random() * nsnps)] = random.random()
-            else:  # drift
-                j = int(random.random() * nh)
-                ix.append(ix[i])  # an index is reproduced
-                ix.pop(j)  # and removed
-        hh = hh[ix]  # finally use index to collect final set of genomes
-        
-    elif nreps > 0:
         for _ in range(nreps):
             i = int(random.random() * nh)
             if random.random() < theta * nsnps:  # mutation
@@ -217,6 +206,7 @@ def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, nsnps=0):
     return hh
 
 
+@jit(nopython=True)
 def evolve_vector(vv, ti, theta=0.0, drift_rate=0.0, nsnps=0):
     """
     Evolve parasite genomes of a vector `vv` forward `ti` days
@@ -243,18 +233,6 @@ def evolve_vector(vv, ti, theta=0.0, drift_rate=0.0, nsnps=0):
     nreps = np.random.poisson(ti * drift_rate)
     
     if nreps > len(vv):
-        ix = list(range(nv))
-        for _ in range(nreps):
-            i = int(random.random() * nv)
-            if random.random() < theta * nsnps:  # mutation
-                vv[ix[i], int(random.random() * nsnps)] = random.random()
-            else:  # drift
-                j = int(random.random() * nv)
-                ix.append(ix[i])
-                ix.pop(j)
-        vv = vv[ix]
-        
-    elif nreps > 0:
         for _ in range(nreps):
             i = int(random.random() * nv)
             if random.random() < theta * nsnps:  # mutation
