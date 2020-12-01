@@ -244,19 +244,19 @@ storage = DataCollection(prev_samp_freq=prev_samp_freq,
 
 
 # DATA STRUCTURES
-v = np.zeros(params['nv'], dtype=np.int8)  # now floating-point to support infinite-alleles
-h = np.zeros(params['nh'], dtype=np.int8)
-h_dt = {}  # key, index of individual; value, parasite genomes
-v_dt = {}
-t_h = np.zeros(params['nh'])
-t_v = np.zeros(params['nv'])
+h = np.zeros(params['nh'], dtype=np.int8)  # Host infection status
+v = np.zeros(params['nv'], dtype=np.int8)  # Vector infection status
+h_dt = {}  # host index: parasite_genomes
+v_dt = {}  # vector index: parasite genomes
+t_h = np.zeros(params['nh'])  # Host time-of-last-update
+t_v = np.zeros(params['nv'])  # Vector time-of-last-update
 print("Done.")
 print("")
 
 
 # SEED INFECTION
 n_seed = 10
-h[:n_seed] = 1  # indicate who is infected with binary array
+h[:n_seed] = 1
 if seed_method == "unique":
     # Each individual has a unique parasite genome, generated randomly
     h_dt.update({i : np.random.uniform(0, 1, size=(params["nph"], params["nsnps"])) for i in range(n_seed)})
@@ -288,12 +288,11 @@ print("-"*80)
 print("Day \t NH \t NV \t H1 \t V1 \t Hm \t Vm \t Elapsed (s) \t")
 print("-"*80)
 start_time = time.time()
-trep = time.time()  # time of last report
-tparams = 0  # last time simulation parameters were changed
+trep = start_time  # time of last report
 t0 = 0  # stores the current time, in days
-gen = 0  # 'generations' of the simulation, one event (bite or clearance) occurs in each generation
-b = 0  # number of biting events
-c = 0  # number of clearance events
+tparams = 0  # stores the last time the simulation parameters changed, in days
+gen = 0  # 'generations' of the simulation; one event (bite or clearance) occurs in each generation
+history = {"ih": 0, "ch": 0, "iv": 0, "cv": 0}  # keep track of events that occur
 while t0 < max_t0:
 
     gen += 1
@@ -499,7 +498,6 @@ while t0 < max_t0:
     
     
     if u < p[0]:  # Infect vector
-        b += 1
         idh = list(h_dt.keys())[int(random.random() * h1)]
         idv = random.choice(np.where(v==0)[0])
         
@@ -517,9 +515,11 @@ while t0 < max_t0:
                                   bp_per_cM=bp_per_cM)
         v[idv] = 1
         t_v[idv] = t0
+        
+        # Record
+        history["iv"] += 1
     
     elif u < p[1]:  # Infect host
-        b += 1
         idh = random.choice(np.where(h==0)[0])
         idv = list(v_dt.keys())[int(random.random() * v1)]
         
@@ -534,8 +534,10 @@ while t0 < max_t0:
         h[idh] = 1
         t_h[idh] = t0
         
+        # Record
+        history["ih"] += 1
+        
     elif u < p[2]:  # Superinfect vector
-        b += 1
         idh = list(h_dt.keys())[int(random.random() * h1)]
         idv = list(v_dt.keys())[int(random.random() * v1)]
         
@@ -555,9 +557,11 @@ while t0 < max_t0:
                                   p_k=params['p_k_v'],
                                   p_oocysts=params['p_oocysts'],
                                   bp_per_cM=bp_per_cM)
+        
+        # Record
+        history["iv"] += 1
     
     elif u < p[3]:  # Superinfect host
-        b += 1
         idh = list(h_dt.keys())[int(random.random() * h1)]
         idv = list(v_dt.keys())[int(random.random() * v1)]
         
@@ -574,9 +578,11 @@ while t0 < max_t0:
         # Transfer (v -> h)        
         h_dt[idh] = infect_host(hh=h_dt[idh], vv=v_dt[idv], nph=params['nph'], p_k=params['p_k_h'])
         t_h[idh] = t0
+        
+        # Record
+        history["ih"] += 1
     
     elif u < p[4]:  # Superinfect host and vector
-        b += 1
         idh = list(h_dt.keys())[int(random.random() * h1)]
         idv = list(v_dt.keys())[int(random.random() * v1)]
         
@@ -597,20 +603,28 @@ while t0 < max_t0:
                                   p_k=params['p_k_v'],
                                   p_oocysts=params['p_oocysts'],
                                   bp_per_cM=bp_per_cM)
-    
+        
+        # Record
+        history["iv"] += 1
+        history["ih"] += 1
+        
     elif u < p[5]:  # Host clears
-        c += 1
         idh = list(h_dt.keys())[int(random.random() * h1)]
         h_dt.pop(idh)
         h[idh] = 0
         t_h[idh] = 0
-    
+        
+        # Record
+        history["ch"] += 1
+        
     elif u < p[6]:  # Vector clears
-        c += 1
         idv = list(v_dt.keys())[int(random.random() * v1)]
         v_dt.pop(idv)
         v[idv] = 0
         t_v[idv] = 0
+        
+        # Record
+        history["cv"] += 1
 
     # Recalculate number of infected hosts and vectors
     h1 = h.sum()
@@ -634,9 +648,16 @@ print("")
 
 # RUN DETAILS
 print("Events simulated")
-print("  Total: %d" % gen)
-print("  Infection: %d (%.02f%%)" % (b, 100*b / gen))
-print("  Clearance: %d (%.02f%%)" % (c, 100*c / gen))
+total = sum(history.values())
+infection = history["ih"] + history["iv"]
+clearance = history["ch"] + history["cv"]
+print("  Total: %d" % total)
+print("  Infection: %d (%.02f%%)" % (infection, 100*infection/total))
+print("    Host: %d (%.02f%%)" % (history["ih"], 100*history["ih"]/total))
+print("    Vector: %d (%.02f%%)" % (history["iv"], 100*history["iv"]/total))
+print("  Clearance: %d (%.02f%%)" % (clearance, 100*clearance/total))
+print("    Host: %d (%.02f%%)" % (history["ch"], 100*history["ch"]/total))
+print("    Vector: %d (%.02f%%)" % (history["cv"], 100*history["cv"]/total))
 print("")
 
 
@@ -684,8 +705,10 @@ runtime = str(datetime.timedelta(seconds=end_time - start_time))
 print("Peak memory usage: %dMb" % peak_memory_mb)
 print("Total simulation run-time (HH:MM:SS): %s" % runtime)
 json.dump({"runtime": runtime, "peak_mem_mb": peak_memory_mb}, 
-          open(out_path + "/run_diagnostics.json", "w"))
+          open(os.path.join(out_path, "run_diagnostics.json"), "w"))
 
+# Save events simulated
+json.dump(history, open(os.path.join(out_path, "event_history.json"), "w"))
 
 print("-" * 80)
 print("Finished at: %s" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
