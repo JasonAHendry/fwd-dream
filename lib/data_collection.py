@@ -116,14 +116,16 @@ class DataCollection(object):
         # Compute statistics
         k_dt = self.calc_coi_statistics(ks)
         diversity_dt = self.calc_diversity_statistics(pos, ac)
-        ibd_dt = dict(calc_ibd_statistics(genomes, ixs, rho=0.05, tau=0.1, theta=2.0))  # convert to dict from jit
+        if self.track_ibd: 
+            ibd_dt = dict(calc_ibd_statistics(genomes, ixs, rho=0.05, tau=0.1, theta=2.0))  # convert to dict from jit
         
         # Store
         sample_dt = {}
         sample_dt["t0"] = t0
         sample_dt.update(k_dt)
         sample_dt.update(diversity_dt)
-        sample_dt.update(ibd_dt)
+        if self.track_ibd:
+            sample_dt.update(ibd_dt)
         for k, v in sample_dt.items():
             self.og[k].append(v)
             
