@@ -37,7 +37,7 @@ print("=" * 80)
 print("Parsing Command Line Inputs...")
 migration = False
 try:
-    opts, args = getopt.getopt(sys.argv[1:], ":e:p:s:m:")
+    opts, args = getopt.getopt(sys.argv[1:], ":e:p:s:")
     # python simulation.py -e <expt-name> -p <param_set.ini> -s <balanced> -m <migration_dir>
     # Note -m is optional
 except getopt.GetoptError:
@@ -50,9 +50,6 @@ for opt, value in opts:
         param_file = value
     elif opt == "-s":
         seed_method = value
-    elif opt == "-m":
-        migration = True
-        migration_dir = value
     else:
         print("Parameter %s not recognized." % opt)
         sys.exit(2)
@@ -111,7 +108,6 @@ bp_per_cM = 2 * params["nsnps"] / 100  # scaled for 1 CO per bivalent
 # Options
 options = {}
 options['init_duration'] = eval(config.get('Options', 'init_duration'))
-options['back_mutation'] = config.getboolean('Options', 'back_mutation')
 options['max_samples'] = eval(config.get('Options', 'max_samples'))
 options['detection_threshold'] = eval(config.get('Options', 'detection_threshold'))
 
@@ -139,7 +135,6 @@ print("  Psi:", derived_params['psi'])
 print("  Expected Human Prevalence:", x_h)
 print("  Expected Vector Prevalence:", x_v)
 print("  R0:", R0)
-print("    Run with back mutation?", options['back_mutation'])
 print("    Limit number of samples collected to:", options['max_samples'])
 print("    Set the detection threshold for mixed infections to:", options['detection_threshold'])
 
