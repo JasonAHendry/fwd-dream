@@ -81,7 +81,6 @@ R0 = calc_R0(**equil_params)
 bp_per_cM = 2 * params["nsnps"] / 100  # scaled for 1 CO per bivalent
 # Options
 options = {}
-options['back_mutation'] = config.getboolean('Options', 'back_mutation')
 options['max_samples'] = eval(config.get('Options', 'max_samples'))
 options['detection_threshold'] = eval(config.get('Options', 'detection_threshold'))
 
@@ -109,7 +108,6 @@ print("  Psi:", derived_params['psi'])
 print("  Expected Human Prevalence:", x_h)
 print("  Expected Vector Prevalence:", x_v)
 print("  R0:", R0)
-print("    Run with back mutation?", options['back_mutation'])
 print("    Limit number of samples collected to:", options['max_samples'])
 print("    Set the detection threshold for mixed infections to:", options['detection_threshold'])
 print("Done.")
@@ -399,7 +397,6 @@ R0 = calc_R0(**equil_params)
 bp_per_cM = 2 * params["nsnps"] / 100  # scaled for 1 CO per bivalent
 # Options
 options = {}
-options['back_mutation'] = config.getboolean('Options', 'back_mutation')
 options['max_samples'] = eval(config.get('Options', 'max_samples'))
 options['detection_threshold'] = eval(config.get('Options', 'detection_threshold'))
 
@@ -427,7 +424,6 @@ print("  Psi:", derived_params['psi'])
 print("  Expected Human Prevalence:", x_h)
 print("  Expected Vector Prevalence:", x_v)
 print("  R0:", R0)
-print("    Run with back mutation?", options['back_mutation'])
 print("    Limit number of samples collected to:", options['max_samples'])
 print("    Set the detection threshold for mixed infections to:", options['detection_threshold'])
 print("Done.")
@@ -522,3 +518,4 @@ print("")
 print("-" * 80)
 print("Finished at: %s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 print("=" * 80)
+
