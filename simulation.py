@@ -292,7 +292,8 @@ trep = start_time  # time of last report
 t0 = 0  # stores the current time, in days
 tparams = 0  # stores the last time the simulation parameters changed, in days
 gen = 0  # 'generations' of the simulation; one event (bite or clearance) occurs in each generation
-history = {"ih": 0, "ch": 0, "iv": 0, "cv": 0}  # keep track of events that occur
+history = {"inf_h": 0, "superinf_h": 0, "clear_h": 0, 
+           "inf_v": 0, "superinf_v": 0, "clear_v": 0}  # keep track of events that occur
 while t0 < max_t0:
 
     gen += 1
@@ -308,9 +309,9 @@ while t0 < max_t0:
     
     """
 
-    if any_epochs and t0 > init_t1:  # beyond initialization
+    if any_epochs and t0 > init_t1:  # Completed initialisation
         for epoch in epochs:
-            if t0 > epoch.t0 and not epoch.occurred:
+            if t0 > epoch.t0 and not epoch.occurred:  # Entering Epoch
                 epoch.occurred = True
                 current_epoch = epoch
                 print("~"*80)
@@ -381,7 +382,6 @@ while t0 < max_t0:
                 print("Day \t NH \t NV \t H1 \t V1 \t Hm \t Vm \t Elapsed (s) \t")
                 print("~"*80)
 
-
         # Subsequent `approach` updates occur here
         if current_epoch.t0 < t0 < current_epoch.approach_t1:
             if (t0 - tparams) > current_epoch.approach_delay:
@@ -392,6 +392,19 @@ while t0 < max_t0:
                 if int(params["nv"]) != len(v):
                     v, t_v, v_dt = update_vectors(nv=params["nv"], v=v, t_v=t_v, v_dt=v_dt)
                     v1 = v.sum()  # recalculate number of infected vectors
+                    
+        # If the sampling rate changes during the Epoch, we adjust that here
+        if current_epoch.adj_prev_samp:  # shut off adjusted sampling if...
+            if storage.tprev > current_epoch.t0 + current_epoch.prev_samp_t:
+                print("Returning to base prevalence sampling rate.")
+                prev_samp_freq = base_prev_samp_freq
+                current_epoch.adj_prev_samp = False
+
+        if current_epoch.adj_div_samp:  # shut off adjusted sampling if...
+            if storage.tdiv > current_epoch.t0 + current_epoch.div_samp_t:
+                print("Returning to base diversity sampling rate.")
+                div_samp_freq = base_div_samp_freq
+                current_epoch.adj_div_samp = False
 
 
     """
@@ -411,7 +424,6 @@ while t0 < max_t0:
         storage.sample_prevalence(t0=t0, h1=h1, v1=v1, nh=params['nh'], nv=params['nv'], 
                                   h_dt=h_dt, v_dt=v_dt)
     
-    
     # Sample genetics
     if (t0 - storage.tdiv) >= storage.div_samp_freq:
         # Evolve hosts to sampling time
@@ -422,22 +434,6 @@ while t0 < max_t0:
 
         # Sample genetics
         storage.sample_genetics(t0=t0, h_dt=h_dt)
-        
-    
-    # If the sampling rate changes during the Epoch, we adjust that here
-    if any_epochs and t0 > init_t1:
-        if current_epoch.adj_prev_samp:  # shut off adjusted sampling if...
-            if storage.tprev > current_epoch.t0 + current_epoch.prev_samp_t:
-                print("Returning to base prevalence sampling rate.")
-                prev_samp_freq = base_prev_samp_freq
-                current_epoch.adj_prev_samp = False
-
-    if any_epochs and t0 > init_t1:
-        if current_epoch.adj_div_samp:  # shut off adjusted sampling if...
-            if storage.tdiv > current_epoch.t0 + current_epoch.div_samp_t:
-                print("Returning to base diversity sampling rate.")
-                div_samp_freq = base_div_samp_freq
-                current_epoch.adj_div_samp = False
                 
     # Print a `report` to screen
     if gen % report_rate == 0:
@@ -496,7 +492,6 @@ while t0 < max_t0:
     u = random.random()
     p = rates.cumsum() / rates_total
     
-    
     if u < p[0]:  # Infect vector
         idh = list(h_dt.keys())[int(random.random() * h1)]
         idv = random.choice(np.where(v==0)[0])
@@ -517,7 +512,7 @@ while t0 < max_t0:
         t_v[idv] = t0
         
         # Record
-        history["iv"] += 1
+        history["inf_v"] += 1
     
     elif u < p[1]:  # Infect host
         idh = random.choice(np.where(h==0)[0])
@@ -535,7 +530,7 @@ while t0 < max_t0:
         t_h[idh] = t0
         
         # Record
-        history["ih"] += 1
+        history["inf_h"] += 1
         
     elif u < p[2]:  # Superinfect vector
         idh = list(h_dt.keys())[int(random.random() * h1)]
@@ -559,7 +554,7 @@ while t0 < max_t0:
                                   bp_per_cM=bp_per_cM)
         
         # Record
-        history["iv"] += 1
+        history["superinf_v"] += 1
     
     elif u < p[3]:  # Superinfect host
         idh = list(h_dt.keys())[int(random.random() * h1)]
@@ -580,7 +575,7 @@ while t0 < max_t0:
         t_h[idh] = t0
         
         # Record
-        history["ih"] += 1
+        history["superinf_h"] += 1
     
     elif u < p[4]:  # Superinfect host and vector
         idh = list(h_dt.keys())[int(random.random() * h1)]
@@ -605,8 +600,8 @@ while t0 < max_t0:
                                   bp_per_cM=bp_per_cM)
         
         # Record
-        history["iv"] += 1
-        history["ih"] += 1
+        history["superinf_v"] += 1
+        history["superinf_h"] += 1
         
     elif u < p[5]:  # Host clears
         idh = list(h_dt.keys())[int(random.random() * h1)]
@@ -615,7 +610,7 @@ while t0 < max_t0:
         t_h[idh] = 0
         
         # Record
-        history["ch"] += 1
+        history["clear_h"] += 1
         
     elif u < p[6]:  # Vector clears
         idv = list(v_dt.keys())[int(random.random() * v1)]
@@ -624,7 +619,7 @@ while t0 < max_t0:
         t_v[idv] = 0
         
         # Record
-        history["cv"] += 1
+        history["clear_v"] += 1
 
     # Recalculate number of infected hosts and vectors
     h1 = h.sum()
@@ -633,9 +628,6 @@ print("="*80)
 print("Done.")
 print("")
 
-# Clean extra rows
-op = pd.DataFrame(storage.op)
-og = pd.DataFrame(storage.og)
 # Bring host parasite population to the present day
 print("Evolving all host parasites to the present (day %.0f) ..." % t0)
 h_dt = evolve_all_hosts(h_dt=h_dt, tis=t0-t_h, 
@@ -649,24 +641,30 @@ print("")
 # RUN DETAILS
 print("Events simulated")
 total = sum(history.values())
-infection = history["ih"] + history["iv"]
-clearance = history["ch"] + history["cv"]
+infection = history["inf_h"] + history["inf_v"]
+superinfection = history["superinf_h"] + history["superinf_v"]
+clearance = history["clear_h"] + history["clear_v"]
 print("  Total: %d" % total)
 print("  Infection: %d (%.02f%%)" % (infection, 100*infection/total))
-print("    Host: %d (%.02f%%)" % (history["ih"], 100*history["ih"]/total))
-print("    Vector: %d (%.02f%%)" % (history["iv"], 100*history["iv"]/total))
+print("    Host: %d (%.02f%%)" % (history["inf_h"], 100*history["inf_h"]/total))
+print("    Vector: %d (%.02f%%)" % (history["inf_v"], 100*history["inf_v"]/total))
+print("  Super-infection: %d (%.02f%%)" % (superinfection, 100*superinfection/total))
+print("    Host: %d (%.02f%%)" % (history["superinf_h"], 100*history["superinf_h"]/total))
+print("    Vector: %d (%.02f%%)" % (history["superinf_v"], 100*history["superinf_v"]/total))
 print("  Clearance: %d (%.02f%%)" % (clearance, 100*clearance/total))
-print("    Host: %d (%.02f%%)" % (history["ch"], 100*history["ch"]/total))
-print("    Vector: %d (%.02f%%)" % (history["cv"], 100*history["cv"]/total))
+print("    Host: %d (%.02f%%)" % (history["clear_h"], 100*history["clear_h"]/total))
+print("    Vector: %d (%.02f%%)" % (history["clear_v"], 100*history["clear_v"]/total))
 print("")
 
 
 # WRITE RESULTS
 print("Writing Outputs...")
+op = pd.DataFrame(storage.op)
+og = pd.DataFrame(storage.og)
 op.to_csv(os.path.join(out_path, "op.csv"), index=False)
 og.to_csv(os.path.join(out_path, "og.csv"), index=False)
 np.save(os.path.join(out_path, "h.npy"), h)
-
+# Create Epoch DataFrame
 if any_epochs:
     epoch_df = pd.DataFrame(np.zeros((len(epochs) + 1, 7)),
                             columns=["name", "t0", "t1", "gen_rate", "gens", "x_h", "x_v"])
