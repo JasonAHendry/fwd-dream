@@ -115,7 +115,7 @@ class DataCollection(object):
         
         # Compute statistics
         k_dt = self.calc_coi_statistics(ks)
-        diversity_dt = self.calc_diversity_stats(pos, ac)
+        diversity_dt = self.calc_diversity_statistics(pos, ac)
         ibd_dt = dict(calc_ibd_statistics(genomes, ixs, rho=0.05, tau=0.1, theta=2.0))  # convert to dict from jit
         
         # Store
@@ -315,7 +315,7 @@ class DataCollection(object):
         return allel.AlleleCountsArray(ac)
     
     
-    def calc_diversity_stats(self, pos, ac):
+    def calc_diversity_statistics(self, pos, ac):
         """
         Calculate a suite of standard genetic diversity
         statistics given SNP positions `pos` and 
