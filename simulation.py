@@ -430,7 +430,7 @@ while t0 < max_t0:
         # Sample genetics
         storage.sample_genetics(t0=t0, h_dt=h_dt)
                 
-    # Print a `report` to screen
+    # Print a report to screen
     if gen % report_rate == 0:
         nHm = sum([storage.detect_mixed(genomes, options['detection_threshold']) for idh, genomes in h_dt.items()])
         nVm = sum([storage.detect_mixed(genomes, options['detection_threshold']) for idv, genomes in v_dt.items()])
@@ -445,16 +445,20 @@ while t0 < max_t0:
     """
     Moving forward in time
     
-    The simulation progresses through time as a parallel Poisson process.
-    Thus, the waiting time between events is exponentially distributed
-    with a rate parameter equal to the sum of the rates of the individual
-    events:
+    The simulation progresses through time as a merged or parallel Poisson 
+    process. Thus, the waiting times between events are exponentially  
+    distributed with a rate parameter equal to the sum of the rates of the 
+    individual event types:
     
         event_rate_total = sum(event_rate_1, ..., event_rate_n)
+        
+    We can split this process to only jump between events of interest,
+    i.e. those that involve the transfer or clearance of malaria parasites.
+    Since these events occur independently, the split processes are also
+    poisson processes, and the waiting times between events is still
+    exponentially distributed, but with a adjusted rates.
     
-    We can filter this process to only jump between events of interest, 
-    i.e. those that involve the transfer or clearance of malaria parasites. 
-    Finally, we try and draw as few random numbers as possible to improve 
+    We try to draw as few random numbers as possible to improve computational
     performance.
     
     """
@@ -658,7 +662,7 @@ op = pd.DataFrame(storage.op)
 og = pd.DataFrame(storage.og)
 op.to_csv(os.path.join(out_path, "op.csv"), index=False)
 og.to_csv(os.path.join(out_path, "og.csv"), index=False)
-np.save(os.path.join(out_path, "h.npy"), h)
+
 # Create Epoch DataFrame
 if any_epochs:
     epoch_df = pd.DataFrame(np.zeros((len(epochs) + 1, 7)),
