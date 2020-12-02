@@ -687,8 +687,7 @@ if h1 > 0:
     final_genetics = storage.sample_genetics(t0=t0, h_dt=h_dt)
     
     for k, v in final_genetics.items():
-        print("%s:\t%0.2f" % (k, v))
-                  
+        print("%s:\t%0.2f" % (k, v))         
 else:
     print("Human parasite population currently extinct!")
     print("... can't compute genetics.")
