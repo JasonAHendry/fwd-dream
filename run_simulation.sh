@@ -56,7 +56,7 @@ echo "simulation.py complete."
 
 echo "**********************************************************************"
 echo "Finished at: "`date`
-echo "Time elapsed: "`date -u -d @$SECONDS +"%Hh %Mm %Ss"`
+printf 'Time elapsed: %dh:%dm:%ds\n' $(($SECONDS/3600)) $(($SECONDS%3600/60)) $(($SECONDS%60))
 echo "**********************************************************************"
 echo ""
 echo ""

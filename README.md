@@ -26,7 +26,7 @@ Then, in the `/fwd-dream` directory, run:
 python simulation.py -e <expt_name> -p <params/param_set.ini> -s <balanced/random/seed_dir>
 ```
 
-The `-e` flag specifies your experiment name, e.g. `-e high-transmission`
+The `-e` flag specifies your experiment name, e.g. `-e high-transmission`.
 
 The `-p` flag the path to your parameter set, which is an `.ini` file in the `/params` directory. In brief, this is how you set all the model parameters for `forward-dream`, and also how you specify different "Epochs" -- i.e. change parameter values *during* a simulation. See `/params/README.txt` for more details.
 
@@ -34,8 +34,26 @@ The `-s` flag specifies how the simulation should be seeded. At present, the sim
 
 The simulation will run printing diagnostics to `stdout` in your terminal. Outputs will be deposited in `/results/<expt_name>`. In particular, `op.csv` will contain information about prevalence of hosts and vectors during the simulation, and `og.csv` will contain information about the genetic diversity of the parasite population.
 
+### A small example
+
+I've included an example parameter set (`params/param_default-example.ini`) and notebook (`notebooks/sec0_plot-default-example.ipynb`) for you to get started with `forward-dream`. The parameters are set such that the simulation runs with default parameters, but for only 10 years, such that you can run the simulation in a few minutes on your local machine. To run it, navigate to the `/fwd-dream` directory and run:
+
+```
+conda activate dream
+python simulation.py -e default -p params/param_default-example.ini -s balanced
+```
+
+The simulation should now print some diagnostics to `stdout`. Once the simulation is done, you should be able to run the notebook `notebooks/sec0_plot-default-example.ipynb` to produce plots that recreate Figure 2 of the `forward-dream` manuscript:
+
+![fig-prevalence](figs/sec0_default-prevalence.png)
+![fig-genetics](figs/sec0_default-genetics.png)
+
+Note that ten years is not enough time for the population to reach genetic equilibrium. 
+
 
 ## Workflows
+
+Below I describe the workflows I used to run the experiments described in the `forward-dream` manuscript. The workflows are specific to the [BMRC computer cluster at the University of Oxford](https://www.medsci.ox.ac.uk/divisional-services/support-services-1/bmrc/cluster-login). If you plan on re-running these experiments you will likely have to tailor these workflows to your specific cluster setup.
 
 ### Simulating variable host prevalence, by different epidemiological causes
 One application of foward-dream is to look at differences in parasite genetic diversity at equilibrium, under different host prevalence regimes. Since we are often unsure of what drives host prevalence variation from region to region, we explore varying host prevalence by changing either (i) the vector biting rate, (ii) the vector density, or (iii) the average duration of infection. 
@@ -47,7 +65,7 @@ One application of foward-dream is to look at differences in parasite genetic di
   - Input: `run_correlation.sh`
   - Calls: `vary_param_set.py`
   - Output: `param_bite_rate_per_v_00.ini`, ... `param_bite_rate_per_v_09.ini`
-3. Move to the Rescomp1 cluster.
+3. Move to the BMRC cluster.
 4. Run `./run_correlations.sh -e 2020-04-10_br-correlation -v bite_rate_per_v -i 100 -s balanced`
   - Tags: `-e`, experiment name; `-v`, parameter being varied; `-i`, number of replicate simulations to run; `-s`, how to seed genomes in simulation
   - Input: `param_bite_rate_per_v_00.ini`, ... `param_bite_rate_per_v_09.ini`
@@ -68,12 +86,12 @@ Another application of forward-dream is to explore how genetic diversity statist
 2. Run `gen_submit.py -e 2020-04-10_art-intv -p params/param_artemisinin.ini -i 100 -s balanced`
   - Input: `params/param_artemisinin.ini`
   - Output: `/submit-simulation.sh`; this will contain cluster submission for 100 replicate experiments.
-3. Move to Rescomp1 cluster.
+3. Move to BMRC cluster.
 4. Run `/submit-simulation.sh`
   - Output: `results/2020-04-10_art-inv` will contain simulation outputs for 100 replicate intervention experiments.
 
 ### Simulating migration from a source to a sink population (beta)
-I have incorporated a simple migration framework into forward-dream that allows the migration of infections from source population to a sink population. This was designed with the aim to explore genetic diversity statistics in the context of a region with unstable malaria transmission (i.e. R_0 < 1) that receives regular migration from a stable (R_0 > 1) source population. The workflow requires running forward-dream twice: (i) for the source population, and *saving* time-stamped genomes throughout and (ii) for the sink population, specifying the path to the source population simulation's output directory with the `-m` flag, and specifying a migration rate. Below I try to explain in more detail.
+I have incorporated a simple migration framework into `forward-dream` that allows the migration of infections from source population to a sink population. This was designed with the aim to explore genetic diversity statistics in the context of a region with unstable malaria transmission (i.e. R_0 < 1) that receives regular migration from a stable (R_0 > 1) source population. The workflow requires running forward-dream twice: (i) for the source population, and *saving* time-stamped genomes throughout and (ii) for the sink population, specifying the path to the source population simulation's output directory with the `-m` flag, and specifying a migration rate. Below I try to explain in more detail.
 
 1. Create *two* parameter set files, one for the source and one for the sink population.
 - I have created two examples:
@@ -86,13 +104,13 @@ I have incorporated a simple migration framework into forward-dream that allows 
 - The rate at which migration occurs in should be much less than the rate at which genomes are stored. i.e.:
   - `migration_rate` in the sink `.ini` <<< than `div_samp_freq` in the source `.ini`
   - Why? This helps ensure that every migration event samples a *unique* genome from the source population. If migration happens at too high a rate, you will artificially introduce IBD in the sink population by migrating over identical genomes from the source.
-2. Move the parameter files to Rescomp1.
+2. Move the parameter files to BMRC cluster.
 2. Run `gen_submit.py -e 2020-05-06_migration-high-source -p params/param_migration-high-source.ini -s balanced -i 10`.
 - Input: `params/param_migration-high-source.ini`
 - Output: `submit_simulation.sh`
   - This will run ten iterations of the source population, storing genomes in each. These can be used to feed infections into the sink populations.
 3. Run './submit_simulation.sh`
-- This submits the source simulations to the cluster.
+- This submits the source simulations to the BMRC cluster.
 - Output: `results/2020-05-06_migration-high-source` will contain simulation outputs for 10 replicate source experiments.
 4. Run `gen_submit.py -e 2020-05-06_migration-high-sink -p params/param_migration-high-sink.ini -s balanced -m 2020-05-06_migration-high-sink`
 - Input: `params/param_migration-high-source.ini`

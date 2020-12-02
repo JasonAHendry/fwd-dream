@@ -77,6 +77,8 @@ derived_params = calc_derived_params(params)
 equil_params = calc_equil_params(params, derived_params)
 x_h = calc_x_h(**equil_params)
 x_v = calc_x_v(**equil_params)
+R0 = calc_R0(**equil_params)
+bp_per_cM = 2 * params["nsnps"] / 100  # scaled for 1 CO per bivalent
 # Options
 options = {}
 options['back_mutation'] = config.getboolean('Options', 'back_mutation')
@@ -92,16 +94,21 @@ print("  No. Sites in Parasite Genome:", params['nsnps'])
 print("  Bite Rate per Vector:", params['bite_rate_per_v'])
 print("  Prob. Human Infected per Bite:", params['p_inf_h'])
 print("  Prob. Vector Infected per Bite:", params['p_inf_v'])
+print("  Prob. Parasite Strain Transmitted to Human:", params['p_k_h'])
+print("  Prob. Parasite Strain Transmitted to Vector:", params['p_k_h'])
+print("  Number of Oocysts Draw From Geometric with p =", params['p_oocysts'])
 print("  Drift Rate in Humans:", params['drift_rate_h'])
 print("  Drift Rate in Vectors:", params['drift_rate_v'])
 print("  Mutation Rate in Humans (theta):", params['theta_h'])
 print("  Mutation Rate in Vectors (theta):", params['theta_v'])
+print("  bp per cM [Scaled for 1 CO / bivalent]:", bp_per_cM)
 print("  Rate of Human Clearance (gamma):", params['gamma'])
 print("  Rate of Vector Clearance (eta):", params['eta'])
 print("  Lambda:", derived_params['lmbda'])
 print("  Psi:", derived_params['psi'])
 print("  Expected Human Prevalence:", x_h)
 print("  Expected Vector Prevalence:", x_v)
+print("  R0:", R0)
 print("    Run with back mutation?", options['back_mutation'])
 print("    Limit number of samples collected to:", options['max_samples'])
 print("    Set the detection threshold for mixed infections to:", options['detection_threshold'])
@@ -388,6 +395,8 @@ derived_params = calc_derived_params(params)
 equil_params = calc_equil_params(params, derived_params)
 x_h = calc_x_h(**equil_params)
 x_v = calc_x_v(**equil_params)
+R0 = calc_R0(**equil_params)
+bp_per_cM = 2 * params["nsnps"] / 100  # scaled for 1 CO per bivalent
 # Options
 options = {}
 options['back_mutation'] = config.getboolean('Options', 'back_mutation')
@@ -403,16 +412,21 @@ print("  No. Sites in Parasite Genome:", params['nsnps'])
 print("  Bite Rate per Vector:", params['bite_rate_per_v'])
 print("  Prob. Human Infected per Bite:", params['p_inf_h'])
 print("  Prob. Vector Infected per Bite:", params['p_inf_v'])
+print("  Prob. Parasite Strain Transmitted to Human:", params['p_k_h'])
+print("  Prob. Parasite Strain Transmitted to Vector:", params['p_k_h'])
+print("  Number of Oocysts Draw From Geometric with p =", params['p_oocysts'])
 print("  Drift Rate in Humans:", params['drift_rate_h'])
 print("  Drift Rate in Vectors:", params['drift_rate_v'])
 print("  Mutation Rate in Humans (theta):", params['theta_h'])
 print("  Mutation Rate in Vectors (theta):", params['theta_v'])
+print("  bp per cM [Scaled for 1 CO / bivalent]:", bp_per_cM)
 print("  Rate of Human Clearance (gamma):", params['gamma'])
 print("  Rate of Vector Clearance (eta):", params['eta'])
 print("  Lambda:", derived_params['lmbda'])
 print("  Psi:", derived_params['psi'])
 print("  Expected Human Prevalence:", x_h)
 print("  Expected Vector Prevalence:", x_v)
+print("  R0:", R0)
 print("    Run with back mutation?", options['back_mutation'])
 print("    Limit number of samples collected to:", options['max_samples'])
 print("    Set the detection threshold for mixed infections to:", options['detection_threshold'])
@@ -422,6 +436,9 @@ print("")
 
 # New prevalence value
 crash_x_h = 0.2
+print("Crash Prevalence: %f" % crash_x_h)
+print("")
+
 
 # Compute parameter adjustments required
 crash_nv = nv_at_x_h(crash_x_h, params)
@@ -429,18 +446,31 @@ crash_gamma = gamma_at_x_h(crash_x_h, params, derived_params)
 crash_br = bite_rate_per_v_at_x_h(crash_x_h, params, derived_params)
 
 # The slowest equilibrium will be when human duration is changed
-crash_params = params.copy()
-crash_params.update({"gamma": crash_gamma})
-crash_derived_params = calc_derived_params(crash_params)
-t_equil = 2*crash_x_h*params['nh']*(crash_derived_params['h_v'] + crash_derived_params['v_h'])
+set_crash_duration = False
+if set_crash_duration:
+    print("Setting Duration of Crash Epoch...")
+    crash_params = params.copy()
+    crash_params.update({"gamma": crash_gamma})
+    crash_derived_params = calc_derived_params(crash_params)
+    t_equil = 2*crash_x_h*params['nh']*(crash_derived_params['h_v'] + crash_derived_params['v_h'])
+    config.set("Epoch_Crash", "duration", "%d" % t_equil)  # set duration of crash to be equal to longest
+    print("  Duration: %f" % t_equil)
+    print("Done.")
+    print("")
+else:
+    print("Keeping default Crash Epoch duration...")
+    t_equil = config.getfloat("Epoch_Crash", "duration")
+    print("  Duration: %f" % t_equil)
+    print("Done.")
+    print("")
 
-
-# Set Crash duration
-config.set("Epoch_Crash", "duration", "%d" % t_equil)  # set duration of crash to be equal to longest
+    
 
 # Modify Epochs
 # Number of vectors
 print("Creating insecticide intervention...")
+print("  Initial Number of Vectors: %d" % params["nv"])
+print("  Crash Number of Vectors: %d" % crash_nv)
 config.set("Epoch_InitVar", "adj_params", "nv")
 config.set("Epoch_InitVar", "adj_vals", "%d" % params["nv"])
 config.set("Epoch_Crash", "adj_params", "nv")
@@ -456,6 +486,8 @@ print("")
 
 # Host Clearance Rate
 print("Creating artemisinin intervention...")
+print("  Initial Host Clearance Rate: %f" % params["gamma"])
+print("  Crash Host Clearance Rate: %f" % crash_gamma)
 config.set("Epoch_InitVar", "adj_params", "gamma")
 config.set("Epoch_InitVar", "adj_vals", "%f" % params["gamma"])
 config.set("Epoch_Crash", "adj_params", "gamma")
@@ -471,6 +503,8 @@ print("")
 
 # Vector Biting Rate
 print("Creating bednet intervention...")
+print("  Initial Biting Rate: %f" % params["bite_rate_per_v"])
+print("  Crash Biting Rate: %f" % crash_br)
 config.set("Epoch_InitVar", "adj_params", "bite_rate_per_v")
 config.set("Epoch_InitVar", "adj_vals", "%f" % params["bite_rate_per_v"])
 config.set("Epoch_Crash", "adj_params", "bite_rate_per_v")
