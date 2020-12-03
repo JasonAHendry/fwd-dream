@@ -84,6 +84,7 @@ print("  Seed Method:", seed_method)
 print("Done.")
 print("")
 
+
 # ASSIGN SIMULATION PARAMETERS
 print("Loading Parameter File...")
 config = configparser.ConfigParser()
@@ -331,15 +332,15 @@ while t0 < max_t0:
                 # Adjust sampling rates
                 if current_epoch.adj_prev_samp:
                     base_prev_samp_freq = prev_samp_freq
-                    prev_samp_freq = current_epoch.prev_samp_freq
+                    storage.prev_samp_freq = current_epoch.prev_samp_freq
                     print("Adjusting Prevalence Sampling Rate:", base_prev_samp_freq)
-                    print("... to:", prev_samp_freq)
+                    print("... to:", storage.prev_samp_freq)
 
                 if current_epoch.adj_div_samp:
                     base_div_samp_freq = div_samp_freq
-                    div_samp_freq = current_epoch.div_samp_freq
+                    storage.div_samp_freq = current_epoch.div_samp_freq
                     print("Adjusting Diversity Sampling Rate:", base_div_samp_freq)
-                    print("... to:", div_samp_freq)
+                    print("... to:", storage.div_samp_freq)
 
 
                 if current_epoch.calc_genetics or current_epoch.collect_samples:
@@ -392,13 +393,13 @@ while t0 < max_t0:
         if current_epoch.adj_prev_samp:  # shut off adjusted sampling if...
             if storage.tprev > current_epoch.t0 + current_epoch.prev_samp_t:
                 print("Returning to base prevalence sampling rate.")
-                prev_samp_freq = base_prev_samp_freq
+                storage.prev_samp_freq = base_prev_samp_freq
                 current_epoch.adj_prev_samp = False
 
         if current_epoch.adj_div_samp:  # shut off adjusted sampling if...
             if storage.tdiv > current_epoch.t0 + current_epoch.div_samp_t:
                 print("Returning to base diversity sampling rate.")
-                div_samp_freq = base_div_samp_freq
+                storage.div_samp_freq = base_div_samp_freq
                 current_epoch.adj_div_samp = False
 
 
