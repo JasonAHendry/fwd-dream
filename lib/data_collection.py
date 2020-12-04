@@ -117,7 +117,8 @@ class DataCollection(object):
         k_dt = self.calc_coi_statistics(ks)
         diversity_dt = self.calc_diversity_statistics(pos, ac)
         if self.track_ibd: 
-            ibd_dt = dict(calc_ibd_statistics(genomes, ixs, rho=0.05, tau=0.1, theta=2.0))  # convert to dict from jit
+            ibd_dt = dict(calc_ibd_statistics(genomes, ixs, 
+                                              rho=0.05, tau=0.1, theta=2.0))  # convert to dict from jit
         
         # Store
         sample_dt = {}
@@ -148,17 +149,18 @@ class DataCollection(object):
         Detect if a given infection is mixed
 
         Parameters
-            oo: ndarray, shape (nph, nsnps)
-                2D Array containing binary genomes for given
-                organism (host or vector). Rows are genomes,
-                columns are SNPs.
-            detection_threshold: float
-                From [0, 1], specifies the fraction of SNPs
-                that must be heterozygous for an infection
-                to be detected as mixed.
+            oo : ndarray, float32, shape (nph, nsnps)
+                Array containing parasite genomes for a host
+                or vector. Rows index parasite genomes,
+                columns index SNP positions.
+            detection_threshold : float
+                Specifies the minimum fraction of SNPs that must 
+                be heterozygous for an infection to be detected
+                as mixed. In [0,1].
+                
         Return
-            ans: bool
-                Answer, is the infection mixed or not?
+            ans : bool
+                True if the infection is mixed.
         """
         n_het_sites = (oo.min(0) != oo.max(0)).sum()
         if detection_threshold is None:
@@ -179,18 +181,20 @@ class DataCollection(object):
         reported only once by `sequence_dna()`
 
         Parameters
-            hh: ndarray, shape (nph, nsnps)
-                Array containing parasite genomes for single host.
-            detection_threshold: None or float
-                A haplotype is only sequenced if > `detection_threshold`
-                of its sites are heterozygous, when compared to *all*
-                other collected genomes.
+            hh : ndarray, shape (nph, nsnps)
+                Array containing parasite genomes for a host. Rows
+                index parasite genomes, columns index SNP positions.
+            detection_threshold : None or float
+                A parasite genome is only detected as distinct by DNA
+                sequencing if greater than `detection_threshold` of
+                its SNPs are heterozygous when compared to all other
+                strains in the host.
 
         Returns
-            k: int
-                Number of unique parasite genomes within the
-                sequenced host.
-            seqs: ndarray, shape(k, nsnps)
+            k : int
+                Number of distinct parasite genomes within the host
+                discovered by DNA sequencing.
+            seqs : ndarray, shape(k, nsnps)
                 Sequenced parasite genomes.
         """
         nsnps = hh.shape[1]
@@ -213,23 +217,20 @@ class DataCollection(object):
         human beings
 
         Parameters
-            h: ndarray, shape (nh)
+            h : ndarray, shape (nh)
                 Infection status (0/1) of each host in the population
                 of size `nh`.
-            h_a: ndarray, shape (nh, nph, nsnps)
-                3D array holding parasite genomes for all hosts.
-            max_samples: None or int
-                Desired maximum number of samples to collect.
-            detection_threshold: None or float
-                A haplotype is only collected if > `detection_threshold`
-                of its sites are heterozygous, when compared to *all*
-                other collected genomes.
-            verbose: bool
+            h_dt : dict, shape(n_infected_hosts)
+                keys: int
+                    Indices for infected hosts.
+                values: ndarray, float32, shape(nph, nsnps)
+                    Parasite genomes held by infected hosts.
+                
         Returns
-            ks: ndarray, shape (samples)
+            ks : ndarray, shape (nsamples)
                 Number of unique parasite genomes for each of the samples
                 that were sequenced.
-            genomes: ndarray, shape (nsnps, samples)
+            genomes : ndarray, shape (nsnps, nnsamples)
                 All parasite genomes collected.
         """
 
@@ -272,11 +273,11 @@ class DataCollection(object):
         given the COI distribution `ks`
 
         Parameters
-            ks: ndarray, shape(n_samples)
+            ks : ndarray, shape (nsamples)
                 The COI distribution across collected
                 samples.
         Returns
-            k_dt: dict
+            k_dt : dict
                 Dictionary containing COI summary statistics.
         """
 
@@ -298,12 +299,12 @@ class DataCollection(object):
         Generate an allele count array for a collection of genomes
 
         Parameters
-            genomes: ndarray, shape (nsnps, n_genomes)
+            genomes : ndarray, shape (nsnps, ngenomes)
                 Array encoding a set of sequenced parasite
                 genomes.
 
         Returns:
-            ac: AlleleCountArray, shape (nsnps, n_alleles)
+            ac : AlleleCountArray, shape (nsnps, nalleles)
                 Allele counts for every loci in `genomes`.
 
         """
@@ -324,14 +325,14 @@ class DataCollection(object):
         allele counts `ac` for a set of parasite genomes
 
         Parameters
-            ac: AlleleCountArray, shape (nsnps, nalleles)
+            ac : AlleleCountArray, shape (nsnps, nalleles)
                 Allele counts for each position in the genome.
                 
-            pos: ndarray, int, shape (nsnps)
+            pos : ndarray, int, shape (nsnps)
                 The position, as an integer, of each SNP
                 in the parasite genome.
         Returns
-            div_stats: dict
+            div_stats : dict
                 Dictionary of genetic diversity statistics.
         """
         _, n_allele_types = ac.shape
@@ -362,18 +363,22 @@ class DataCollection(object):
 @jit(nopython=True)
 def get_ibs_segments(ibs):
     """
-    Given a boolean vector specifying whether
-    each SNP position carries the same allele,
-    return an array of identity track lengths
-
+    Given an Identity-by-state (IBS) profile, return 
+    the length of all the IBS segments
+    
     Parameters
-        ibs: ndarray, dtype bool, shape (nsnps)
-            For each position in the genome, are
-            the alleles identical?
+        ibs : ndarray, bool, shape (nsnps)
+            The IBS profile. For a pair of parasite genomes,
+            indicates True if they carry the same allele
+            at a given SNP, and False otherwise.
+            
     Returns
-        segs: ndarray, dtype int, shape(n_segs)
-            Return the length of IBS segments.
+        segs : ndarray, int, shape(nsegs)
+            An array containing the length of all the 
+            IBS segments.
+            
     """
+    
     ll = []
     l = 0
     for state in ibs:
@@ -383,9 +388,9 @@ def get_ibs_segments(ibs):
             ll.append(l)
             l = 0
     ll.append(l)  # append last segment
-    segs = np.array(ll)  # always positive, won't be >65K SNPs
+    if l > 0: ibs_segs.append(l)  # append last segment
 
-    return segs[segs > 0]  # only return if positive length
+    return np.array(ibs_segs)
 
 
 #@staticmethod
@@ -401,18 +406,18 @@ def calc_ibd_emissions(tau, theta):
     site does not need to be identical.
 
     Parameters
-        tau: float
+        tau : float
             `tau` indicates the point in time
             after which all alleles are considered
             distinct, i.e. if two alleles have not
             coalesced before this time they are not
             in IBD. It is expressed in coalescent
             time units (N generations).
-        theta: float
+        theta : float
             The coalescent mutation rate.
 
     Returns
-        emiss: ndarray, float, shape(2, 2)
+        emiss : ndarray, float, shape(2, 2)
             Emission probabilities for IBD
             and not IBD states. Rows are IBD state 
             and columns give probabilities of carrying 
@@ -446,21 +451,21 @@ def get_ibd_segments(ibs, rho, emiss):
     a simple hidden Markov Model
 
     Parameters
-        ibs_state: ndarray, bool, shape (nsnps)
+        ibs_state : ndarray, bool, shape (nsnps)
             For each position in the genome report,
             True if both parasite genomes carry the
             same allele.
-        rho: float
+        rho : float
             The recombination rate between sites.
             Assumed uniform across the genome.
-        emiss: ndarray, float64, shape(2, 2)
+        emiss : ndarray, float64, shape(2, 2)
             Numpy array containing the emission probabilities
             for the HMM.
 
     Returns
-        ibd_segs: ndarray, float32, shape(n_ibd_segments)
-            Numpy array containing a list of the length
-            of all the detected IBD segments.
+        ibd_segs : ndarray, float32, shape(n_ibd_segments)
+            Numpy array containing the length of all the 
+            IBD segments detected by the HMM.
     """
 
     # Parameters
@@ -512,25 +517,24 @@ def calc_ibd_statistics(genomes, ixs, rho, tau, theta):
     to compute within- and between-sample IBD
 
     Parameters
-        genomes: ndarray, float32, shape (nsnps, ngenomes)
+        genomes : ndarray, float32, shape (nsnps, ngenomes)
             Array encoding a set of sequenced parasite
             genomes.
-        ixs: ndarray, int, shape (ngenomes)
+        ixs : ndarray, int, shape (ngenomes)
             Array containing the indexes of the samples
             each genome came from.
-        rho: float
+        rho : float
             The recomination rate.
-        theta: float
+        theta : float
             The coalescent mutation rate; classically
             equal to twice the product of the effective 
             population size and mutation rate.
-        tau: float
+        tau : float
             Indicates the time point after which all
             alleles are considered unique; two alleles
             are in IBD if they are copies of the same
             ancestral allele that existed before `tau`,
             i.e. MRCA existed before `tau`.
-
 
     Returns
         popn_dt: dict
