@@ -478,3 +478,120 @@ class Epoch(object):
         """
         self.tparam = t
         return {key: f(t) for key, f in self.approach_funcs.items()}
+
+
+# ================================================================= #
+# Coordinate Multiple Epochs
+#
+# ================================================================= #
+
+     
+class Epochs(object):
+    """
+    Co-ordinate all Epochs
+    
+    """
+    def __init__(self, config):
+        
+        # Parse
+        self.params = parse_parameters(config)
+        self.config = config
+        
+        self.init_duration = None
+        self.epoch_sections = None
+        self.exist = None
+        self.max_t0 = None
+        
+        self.current = None
+
+        
+    def set_initialisation(self, verbose=False):
+        """
+        Set the initialisation duration of the simulation
+        
+        Parameters
+            verbose : bool
+        Returns
+            Null
+        """
+        
+        self.init_duration = eval(self.config.get('Options', 'init_duration'))
+        if self.init_duration in [None, "equil"]:
+            if verbose:
+                print("Initialising simulation to approximate equilibrium.")
+            derived_params = calc_derived_params(self.params)
+            equil_params = calc_equil_params(self.params, derived_params)
+            x_h = calc_x_h(**equil_params)
+            time_to_equil = 2*x_h*self.params['nh']*(derived_params['h_v'] + derived_params['v_h']) 
+            self.init_duration = time_to_equil
+        else:
+            if verbose:
+                print("Initialising simulation to a user-specified duration.")
+        if verbose:
+            print("  Initialisation duration: %d days" % self.init_duration)
+        
+        
+    def prepare_epochs(self, verbose=False):
+        """
+        With this method we will prepare all of the epochs
+             
+        Parameters
+            verbose : bool
+        Returns
+            Null
+        """
+        
+        # Collect 'Epoch_' sections
+        self.epoch_sections = [s for s in self.config.sections() if "Epoch" in s]
+        
+        # If Epochs exist, prepare them
+        if len(self.epoch_sections) > 0:
+            self.exist = True
+            self.epochs = [Epoch(self.config, s) for s in self.epoch_sections]
+            if verbose: print("Epochs")
+            for (i, epoch) in enumerate(self.epochs):
+                if i == 0:
+                    epoch.set_params(self.params)
+                    epoch.set_timings(self.init_duration)  # begins at end of initialization
+                    epoch.set_approach()
+                    epoch.set_sampling()
+                else:
+                    epoch.set_params(entry_params=self.epochs[i-1].epoch_params)
+                    epoch.set_timings(start_time=self.epochs[i-1].t1)  # begins at end `.t1` of previous epoch
+                    epoch.set_approach()
+                    epoch.set_sampling()
+                if verbose:
+                    print(" ", i+1, ":", epoch.name)
+                    print("    Begins: %d, Ends: %d" % (epoch.t0, epoch.t1))
+                    print("    Adjusting Parameter(s):", epoch.adj_keys)
+                    print("    To Value(s):", epoch.adj_vals)
+                    print("    via.:", epoch.approach)
+                    print("    Approach Time(s):", epoch.approach_ts)
+                    print("    Host Prevalence: %.03f, Vector: %.03f" % (epoch.x_h, epoch.x_v))
+                    print("    Adjust Prevalence Sampling:", epoch.adj_prev_samp)
+                    if epoch.adj_prev_samp:
+                        print("    ...to every %d days for %d days." \
+                              % (epoch.prev_samp_freq, epoch.prev_samp_t))
+                    print("    Adjust Diversity Sampling:", epoch.adj_div_samp)
+                    if epoch.adj_div_samp:
+                        print("    ...to every %d days for %d days." \
+                              % (epoch.div_samp_freq, epoch.div_samp_t))
+            
+            self.max_t0 = self.epochs[-1].t1  # the end of the simulation
+            if verbose:
+                print("  Total Duration: %d days" % self.max_t0)
+        
+    def update_time(self, t):
+        """
+        Check if current epoch needs to be changed,
+        given the time `t`
+        
+        If we have passed the start time of an Epoch,
+        but it has not yet begun, we assign it as
+        the current epoch.
+        
+        """
+        
+        for epoch in self.epochs:
+            if t > epoch.t0 and not epoch.begun:
+                self.current = epoch
