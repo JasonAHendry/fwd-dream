@@ -373,21 +373,20 @@ def get_ibs_segments(ibs):
             at a given SNP, and False otherwise.
             
     Returns
-        segs : ndarray, int, shape(nsegs)
+        ll : ndarray, int, shape(nsegs)
             An array containing the length of all the 
             IBS segments.
             
     """
     
-    ll = []
+    ibs_segs = []
     l = 0
     for state in ibs:
         if state:
             l += 1
         else:
-            ll.append(l)
+            ibs_segs.append(l)
             l = 0
-    ll.append(l)  # append last segment
     if l > 0: ibs_segs.append(l)  # append last segment
 
     return np.array(ibs_segs)
