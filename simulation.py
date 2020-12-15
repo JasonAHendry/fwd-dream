@@ -35,7 +35,6 @@ print("=" * 80)
 
 # PARSE CLI INPUT
 print("Parsing Command Line Inputs...")
-migration = False
 try:
     opts, args = getopt.getopt(sys.argv[1:], ":e:p:s:")
     # python simulation.py -e <expt-name> -p <param_set.ini> -s <balanced> -m <migration_dir>
@@ -89,16 +88,10 @@ print("")
 print("Loading Parameter File...")
 config = configparser.ConfigParser()
 config.read(param_file)
-# Basic
-params = {}
-demography = {param: int(val) for param, val in config.items('Demography')}
-transmission = {param: float(val) for param, val in config.items('Transmission')}
-genome = {param: int(val) for param, val in config.items('Genome')}
-evolution = {param: float(val) for param, val in config.items('Evolution')}
-params.update(demography)
-params.update(transmission)
-params.update(genome)
-params.update(evolution)
+
+# Essential
+params = parse_parameters(config)
+
 # Derived & Equilibrium
 derived_params = calc_derived_params(params)
 equil_params = calc_equil_params(params, derived_params)
@@ -106,6 +99,7 @@ x_h = calc_x_h(**equil_params)
 x_v = calc_x_v(**equil_params)
 R0 = calc_R0(**equil_params)
 bp_per_cM = 2 * params["nsnps"] / 100  # scaled for 1 CO per bivalent
+
 # Options
 options = {}
 options['init_duration'] = eval(config.get('Options', 'init_duration'))
@@ -154,76 +148,10 @@ print("")
 
 
 # PARSE EPOCHS
-print("Preparing Epochs...")
-# Initialization, until ~ simulation equilibrium
-init_t0 = 0
-if options['init_duration'] is None:
-    print("Initializing to equilibrium.")
-    time_to_equil = 2*x_h*params['nh']*(derived_params['h_v'] + derived_params['v_h'])  # 2*Ne*g
-    print("  Init Duration (d):", time_to_equil)
-    init_duration = time_to_equil
-elif options['init_duration'] > 0:
-    print("Initializing for a specified duration.")
-    init_duration = options['init_duration']
-    print("  Init Duration (d):", init_duration)
-else:
-    print("Inappropriate init_duration.")
-init_t1 = init_t0 + init_duration
-init_gen_rate = params['bite_rate_per_v']*params['nv'] \
-                + params['gamma']*x_h*params['nh'] \
-                + params['eta']*x_v*params['nv']
-init_gens = init_duration*init_gen_rate  # days * gens per day = total gens
-# Epochs
-total_t0 = init_t1  # total time in simulation, given included epochs
-total_gens = init_gens  # total gens in simulation, given included epochs
-total_prev_samps = init_t1/prev_samp_freq
-total_div_samps = init_t1/div_samp_freq
-epoch_sections = [s for s in config.sections() if "Epoch" in s]
-if len(epoch_sections) > 0:
-    any_epochs = True
-    epochs = [Epoch(config, s) for s in epoch_sections]
-    print("Epochs")
-    for (i, epoch) in enumerate(epochs):  # NB: correct order of epochs is assumed
-        if i == 0:
-            epoch.set_params(params)
-            epoch.set_duration(init_t1)  # begins at end of initialization
-            epoch.set_approach()
-            epoch.set_sampling()
-        else:
-            epoch.set_params(epochs[i-1].epoch_params)
-            epoch.set_duration(epochs[i-1].t1)  # begins at end `.t1` of previous epoch
-            epoch.set_approach()
-            epoch.set_sampling()
-        total_prev_samps += epoch.calc_prev_samps(prev_samp_freq)
-        total_div_samps += epoch.calc_div_samps(div_samp_freq)
-        total_t0 += epoch.telapse
-        total_gens += epoch.gens
-        print(" ", i, ":", epoch.name)
-        print("    Adjusting Parameter(s):", epoch.adj_keys)
-        print("    To value(s):", epoch.adj_vals)
-        print("    via.:", epoch.approaches)
-        print("    Start: %.02f, Finish: %.02f" % (epoch.t0, epoch.t1))
-        print("    Human Prevalence: %.03f, Vector: %.03f" % (epoch.x_h, epoch.x_v))
-        print("    Generation Rate: %.04f, Total: %.04f" % (epoch.gen_rate, epoch.gens))
-        print("    Adjust Prevalence Sampling:", epoch.adj_prev_samp)
-        if epoch.adj_prev_samp:
-            print("      to:", epoch.prev_samp_freq)
-            print("      for:", epoch.prev_samp_t)
-        print("    Adjust Diversity Sampling:", epoch.adj_div_samp)
-        if epoch.adj_div_samp:
-            print("      to:", epoch.div_samp_freq)
-            print("      for:", epoch.div_samp_t)
-else:
-    any_epochs = False
-# Totalling...
-max_t0 = total_t0
-max_gens = total_gens
-prev_max_samps = int(total_prev_samps)
-div_max_samps = int(total_div_samps)
-print(" Total Generations:", max_gens)
-print(" Total Duration:", max_t0)
-print(" Total of %d Prevalence Samples" % prev_max_samps)
-print(" Total of %d Diversity Samples" % div_max_samps)
+epochs = Epochs(config)
+epochs.set_initialisation(verbose=True)
+epochs.prepare_epochs(verbose=True)
+max_t0 = epochs.max_t0  # pull this out of class for speed
 print("Done.")
 print("")
 
@@ -251,6 +179,7 @@ print("")
 
 
 # SEED INFECTION
+# - Set t0 here depending on seed method
 n_seed = 10
 h[:n_seed] = 1
 if seed_method == "unique":
@@ -286,13 +215,12 @@ print("-"*80)
 start_time = time.time()
 trep = start_time  # time of last report
 t0 = 0  # stores the current time, in days
-tparams = 0  # stores the last time the simulation parameters changed, in days
 gen = 0  # 'generations' of the simulation; one event (bite or clearance) occurs in each generation
 history = {"inf_h": 0, "superinf_h": 0, "clear_h": 0, 
            "inf_v": 0, "superinf_v": 0, "clear_v": 0}  # keep track of events that occur
 while t0 < max_t0:
 
-    gen += 1
+    gen += 1  # possibly almost no longer necessary
     
     """
     Epochs
@@ -305,102 +233,102 @@ while t0 < max_t0:
     
     """
 
-    if any_epochs and t0 > init_t1:  # Completed initialisation
-        for epoch in epochs:
-            if t0 > epoch.t0 and not epoch.occurred:  # Entering Epoch
-                epoch.occurred = True
-                current_epoch = epoch
-                print("~"*80)
-                print("Beginning %s Epoch" % current_epoch.name)
-                print("-"*80)
-                print("Adjusting Parameter(s):", current_epoch.adj_keys)
-                print("... to:", current_epoch.adj_vals)
-                print("Using approach(es):", current_epoch.approaches)
-                print(" ... with an approach time of ", current_epoch.approach_t1 - current_epoch.t0, " days.")
-                print("Equilibrium host prevalence:", current_epoch.x_h)
-                print("...and vector prevalence:", current_epoch.x_v)
-
-                # Update parameters at transition, in case approach time is zero
-                params.update(current_epoch.approach_params(t0))
-                derived_params = calc_derived_params(params)
-                equil_params = calc_equil_params(params, derived_params)
-
-                if int(params["nv"]) != len(v):
-                    v, t_v, v_dt = update_vectors(nv=params["nv"], v=v, t_v=t_v, v_dt=v_dt)
-                    v1 = v.sum()  # recalculate number of infected vectors
-
-                # Adjust sampling rates
-                if current_epoch.adj_prev_samp:
-                    base_prev_samp_freq = prev_samp_freq
-                    storage.prev_samp_freq = current_epoch.prev_samp_freq
-                    print("Adjusting Prevalence Sampling Rate:", base_prev_samp_freq)
-                    print("... to:", storage.prev_samp_freq)
-
-                if current_epoch.adj_div_samp:
-                    base_div_samp_freq = div_samp_freq
-                    storage.div_samp_freq = current_epoch.div_samp_freq
-                    print("Adjusting Diversity Sampling Rate:", base_div_samp_freq)
-                    print("... to:", storage.div_samp_freq)
+    if epochs.exist and t0 > epochs.init_duration:
+        epochs.update_time(t0)
+        
+        # Entering new Epoch
+        if not epochs.current.begun:
+            epochs.current.begun = True
+            print("~"*80)
+            print("Beginning %s Epoch" % epochs.current.name)
+            print("-"*80)
+            print("Adjusting Parameter(s):", epochs.current.adj_keys)
+            print("... to:", epochs.current.adj_vals)
+            print("Using approach(es):", epochs.current.approach)
+            print(" ... with an approach time of ",
+                  epochs.current.approach_t1 - epochs.current.t0, " days.")
+            print("Equilibrium host prevalence:", epochs.current.x_h)
+            print("...and vector prevalence:", epochs.current.x_v)
 
 
-                if current_epoch.calc_genetics or current_epoch.collect_samples:
-                    # Bring host parasite population to present before collecting samples
-                    h_dt = evolve_all_hosts(h_dt=h_dt, tis=t0-t_h, 
-                                           drift_rate=params['drift_rate_h'], theta=params['theta_h'],
-                                           nsnps=params['nsnps'])
-                    t_h[:] = t0
-                    
-                    # Make an Epoch Directory
-                    epoch_dir = os.path.join(out_path, current_epoch.name)
-                    if not os.path.isdir(epoch_dir):
-                        os.mkdir(epoch_dir)
+            # Always update parameters at transition
+            params.update(epochs.current.get_params(t0))
+            derived_params = calc_derived_params(params)
+            equil_params = calc_equil_params(params, derived_params)
 
-                    if h1 > 0:
-                        if current_epoch.collect_samples:
-                            print("Collecting a sample of %d genomes..." % storage.max_samples)
-                            ks, genomes, ixs = storage.collect_genomes(h_dt)
-                            np.save(os.path.join(epoch_dir, "ks.npy"), ks)
-                            np.save(os.path.join(epoch_dir, "genomes.npy"), genomes)
-                            np.save(os.path.join(epoch_dir, "ixs.npy"), ixs)
-                        if current_epoch.calc_genetics:
-                            print("Storing genetic data upon Epoch entry...")
-                            entry_genetics = storage.sample_genetics(t0=t0, h_dt=h_dt)
-                            json.dump(entry_genetics, 
-                                      open(os.path.join(epoch_dir, "entry_genetics.json"), "w"), 
-                                      default=default)
-                    else:
-                        print("Human parasite population currently extinct!")
-                        print("... can't compute genetics or collect genomes.")
-                print("Done.")
-                print("")
-                        
-                print("-"*80)
-                print("Day \t NH \t NV \t H1 \t V1 \t Hm \t Vm \t Elapsed (s) \t")
-                print("~"*80)
+            if int(params["nv"]) != len(v):
+                v, t_v, v_dt = update_vectors(nv=params["nv"], v=v, t_v=t_v, v_dt=v_dt)
+                v1 = v.sum()
 
-        # Subsequent `approach` updates occur here
-        if current_epoch.t0 < t0 < current_epoch.approach_t1:
-            if (t0 - tparams) > current_epoch.approach_delay:
-                params.update(current_epoch.approach_params(t0))
-                derived_params = calc_derived_params(params)
-                equil_params = calc_equil_params(params, derived_params)
 
-                if int(params["nv"]) != len(v):
-                    v, t_v, v_dt = update_vectors(nv=params["nv"], v=v, t_v=t_v, v_dt=v_dt)
-                    v1 = v.sum()  # recalculate number of infected vectors
-                    
-        # If the sampling rate changes during the Epoch, we adjust that here
-        if current_epoch.adj_prev_samp:  # shut off adjusted sampling if...
-            if storage.tprev > current_epoch.t0 + current_epoch.prev_samp_t:
-                print("Returning to base prevalence sampling rate.")
-                storage.prev_samp_freq = base_prev_samp_freq
-                current_epoch.adj_prev_samp = False
+            # Optionally update sampling rates
+            if epochs.current.adj_prev_samp:
+                print("Adjusting Prevalence Sampling Rate: %d" % storage.prev_samp_freq)
+                print("... to: %d" % epochs.current.prev_samp_freq)
+                storage.prev_samp_freq = epochs.current.prev_samp_freq
 
-        if current_epoch.adj_div_samp:  # shut off adjusted sampling if...
-            if storage.tdiv > current_epoch.t0 + current_epoch.div_samp_t:
-                print("Returning to base diversity sampling rate.")
-                storage.div_samp_freq = base_div_samp_freq
-                current_epoch.adj_div_samp = False
+            if epochs.current.adj_div_samp:
+                print("Adjusting Diversity Sampling Rate: %d" % storage.div_samp_freq)
+                print("... to: %d" % epochs.current.div_samp_freq)
+                storage.div_samp_freq = epochs.current.div_samp_freq
+
+
+            if epochs.current.calc_genetics or epochs.current.save_state:
+                # Bring host parasite population to present before collecting samples
+                h_dt = evolve_all_hosts(h_dt=h_dt, tis=t0-t_h, 
+                                       drift_rate=params['drift_rate_h'], theta=params['theta_h'],
+                                       nsnps=params['nsnps'])
+                t_h[:] = t0
+
+                # Make an Epoch Directory
+                epoch_dir = os.path.join(out_path, epochs.current.name)
+                if not os.path.isdir(epoch_dir):
+                    os.mkdir(epoch_dir)
+
+                if h1 > 0:
+                    if epochs.current.save_state:
+                        print("Saving simulation state...")
+                        save_simulation(t0, h_dt, v_dt, t_h, t_v, epoch_dir)
+
+                    if epochs.current.calc_genetics:
+                        print("Storing genetic data upon Epoch entry...")
+                        entry_genetics = storage.sample_genetics(t0=t0, h_dt=h_dt, update=False)
+                        json.dump(entry_genetics, 
+                                  open(os.path.join(epoch_dir, "entry_genetics.json"), "w"), 
+                                  default=default)
+                else:
+                    print("Human parasite population currently extinct!")
+                    print("... can't compute genetics or collect genomes.")
+            print("Done.")
+            print("")
+
+            print("-"*80)
+            print("Day \t NH \t NV \t H1 \t V1 \t Hm \t Vm \t Elapsed (s) \t")
+            print("~"*80)
+
+                
+        # During Epoch
+        if epochs.current.adjust_params(t0):  # Check if parameters need updating
+            params.update(epochs.current.get_params(t0))
+            derived_params = calc_derived_params(params)
+            equil_params = calc_equil_params(params, derived_params)
+
+            if int(params["nv"]) != len(v):
+                v, t_v, v_dt = update_vectors(nv=params["nv"], v=v, t_v=t_v, v_dt=v_dt)
+                v1 = v.sum()  # recalculate number of infected vectors
+        
+        # Return to original sampling rates
+        if epochs.current.adj_prev_samp:
+            if t0 > epochs.current.t0 + epochs.current.prev_samp_t:
+                print("Returning Prevalence Sampling Rate to: %d" % prev_samp_freq)
+                storage.prev_samp_freq = prev_samp_freq
+                epochs.current.adj_prev_samp = False
+                
+        if epochs.current.adj_div_samp:
+            if t0 > epochs.current.t0 + epochs.current.div_samp_t:
+                print("Returning Diversity Sampling Rate to: %d" % div_samp_freq)
+                storage.div_samp_freq = div_samp_freq
+                epochs.current.adj_div_samp = False
 
 
     """
@@ -433,8 +361,10 @@ while t0 < max_t0:
                 
     # Print a report to screen
     if gen % report_rate == 0:
-        nHm = sum([storage.detect_mixed(genomes, options['detection_threshold']) for idh, genomes in h_dt.items()])
-        nVm = sum([storage.detect_mixed(genomes, options['detection_threshold']) for idv, genomes in v_dt.items()])
+        nHm = sum([storage.detect_mixed(genomes, options['detection_threshold']) 
+                   for idh, genomes in h_dt.items()])
+        nVm = sum([storage.detect_mixed(genomes, options['detection_threshold']) 
+                   for idv, genomes in v_dt.items()])
         print("%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%.02f" \
               % (t0, 
                  params["nh"], params["nv"], 
@@ -663,17 +593,8 @@ op = pd.DataFrame(storage.op)
 og = pd.DataFrame(storage.og)
 op.to_csv(os.path.join(out_path, "op.csv"), index=False)
 og.to_csv(os.path.join(out_path, "og.csv"), index=False)
+epochs.write_epochs(out_path, verbose=True)
 
-# Create Epoch DataFrame
-if any_epochs:
-    epoch_df = pd.DataFrame(np.zeros((len(epochs) + 1, 7)),
-                            columns=["name", "t0", "t1", "gen_rate", "gens", "x_h", "x_v"])
-    epoch_df.loc[0] = ["init", init_t0, init_t1, init_gen_rate, init_gens, x_h, x_v]
-    for i, epoch in enumerate(epochs):
-        epoch_df.loc[i + 1] = [epoch.name, epoch.t0, epoch.t1, epoch.gen_rate, epoch.gens, epoch.x_h, epoch.x_v]
-    epoch_df.to_csv(os.path.join(out_path, "epoch_df.csv"), index=False)
-print("Done.")
-print("")
 
 # Compute Genetics
 print("Final Simulation State:")
@@ -683,8 +604,8 @@ if h1 > 0:
                                                  h1=h1, v1=v1, 
                                                  nh=params['nh'], nv=params['nv'], 
                                                  h_dt=h_dt, 
-                                                 v_dt=v_dt)
-    final_genetics = storage.sample_genetics(t0=t0, h_dt=h_dt)
+                                                 v_dt=v_dt, update=False)
+    final_genetics = storage.sample_genetics(t0=t0, h_dt=h_dt, update=False)
     
     for k, v in final_genetics.items():
         print("%s:\t%0.2f" % (k, v))         

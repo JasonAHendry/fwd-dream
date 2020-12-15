@@ -35,7 +35,6 @@ print("=" * 80)
 
 # PARSE CLI INPUT
 print("Parsing Command Line Inputs...")
-migration = False
 try:
     opts, args = getopt.getopt(sys.argv[1:], ":e:p:s:")
     # python simulation.py -e <expt-name> -p <param_set.ini> -s <balanced> -m <migration_dir>
@@ -594,31 +593,8 @@ op = pd.DataFrame(storage.op)
 og = pd.DataFrame(storage.og)
 op.to_csv(os.path.join(out_path, "op.csv"), index=False)
 og.to_csv(os.path.join(out_path, "og.csv"), index=False)
+epochs.write_epochs(out_path, verbose=True)
 
-# Create Epoch DataFrame
-if epochs.exist:
-    epoch_dt = {
-        "name": ["init"],
-        "t0": [init_t0],
-        "t1": [init_t1],
-        "param": [""],
-        "val": [""],
-        "x_h": [x_h],
-        "x_v": [x_v]}
-    
-    for epoch in epochs:
-        epoch_dt["name"].append(epoch.name)
-        epoch_dt["t0"].append(epoch.t0)
-        epoch_dt["t1"].append(epoch.t1)
-        epoch_dt["param"].append(" ,".join(epoch.adj_keys))
-        epoch_dt["val"].append(" ,".join([str(s) for s in epoch.adj_vals]))
-        epoch_dt["x_h"].append(epoch.x_h)
-        epoch_dt["x_v"].append(epoch.x_v)
-    
-    epoch_df = pd.DataFrame(epoch_dt)
-    epoch_df.to_csv(os.path.join(out_path, "epoch_df.csv"), index=False)
-print("Done.")
-print("")
 
 # Compute Genetics
 print("Final Simulation State:")
