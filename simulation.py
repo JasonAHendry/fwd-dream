@@ -37,8 +37,7 @@ print("=" * 80)
 print("Parsing Command Line Inputs...")
 try:
     opts, args = getopt.getopt(sys.argv[1:], ":e:p:s:")
-    # python simulation.py -e <expt-name> -p <param_set.ini> -s <balanced> -m <migration_dir>
-    # Note -m is optional
+    # python simulation.py -e <expt-name> -p <param_set.ini> -s <clonal/unique>
 except getopt.GetoptError:
     print("Option Error. Please conform to:")
     print("-v <int>")
