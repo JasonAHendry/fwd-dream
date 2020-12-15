@@ -1,14 +1,100 @@
-import numpy as np
-import allel
-import scipy.stats
+import os
+import json
 import configparser
+import numpy as np
+import pandas as pd
+
+import scipy.stats
+
 from lib.diagnostics import *
+from lib.generic import *
 
 
 # ================================================================= #
-# Update vector population
+# Epoch related functions
 #
 # ================================================================= #
+
+
+def save_simulation(t0, h_dt, v_dt, t_h, t_v, out_dir):
+    """
+    Save the current state of the simulation
+    
+    Parameters
+        t0 : float
+            Current time of the simulation in days
+        h_dt : dict
+            keys : int
+                Index of host.
+            values : ndarray, float32, shape (nph, nsnps)
+                Parasite genomes infecting host.
+        v_dt : dict
+            keys : int
+                Index of vector.
+            values : ndarray, float32, shape (npv, nsnps)
+                Parasite genomes infecting vector.
+        t_h : ndarray, float, shape(n_hosts)
+            Array giving the last time (in days) that
+            a given host's state was updated.
+        t_v : ndarray, float, shape(n_vectors)
+            Array giving the last time (in days) that
+            a given vector's state was updated.
+    Returns
+        Null
+        
+    """
+    
+    # Save the time
+    json.dump({"t0" : t0}, open(os.path.join(out_dir, "t0.json"), "w"), default=default)
+    
+    # Save infect genomes
+    json.dump({int(k): v for k, v in h_dt.items()},  # necessary to make JSON serialisable
+              open(os.path.join(out_dir, "h_dt.json"), "w"), 
+              default=default)
+    json.dump({int(k): v for k, v in v_dt.items()}, 
+              open(os.path.join(out_dir, "v_dt.json"), "w"), 
+              default=default)
+    
+    # Save time since last update
+    np.save(os.path.join(out_dir, "t_h.npy"), t_h)
+    np.save(os.path.join(out_dir, "t_v.npy"), t_v)
+    
+    return 0
+
+
+def parse_parameters(config):
+    """
+    Pass the parameters in an `.ini` file
+    specified by a `config` file
+    
+    TODO
+    - Could check that the length of all of these is correct
+    
+    Parameters
+        config : ConfigParser class
+            Object that contains all of the simulation
+            parameters (configuration values) loaded 
+            from the '.ini' file.
+    Returns
+        params : dict
+            Dictionary of all parameter values
+            required for the simulation.
+    
+    """
+    
+    params = {}
+    
+    demography = {param: int(val) for param, val in config.items('Demography')}
+    transmission = {param: float(val) for param, val in config.items('Transmission')}
+    genome = {param: int(val) for param, val in config.items('Genome')}
+    evolution = {param: float(val) for param, val in config.items('Evolution')}
+    
+    params.update(demography)
+    params.update(transmission)
+    params.update(genome)
+    params.update(evolution)
+    
+    return params
 
 
 def update_vectors(nv, v, t_v, v_dt):
@@ -65,124 +151,246 @@ def update_vectors(nv, v, t_v, v_dt):
 
 
 # ================================================================= #
-# Define Epoch Behaviour
+# class Epoch and Epochs
+# 
 #
 # ================================================================= #
 
 
 class Epoch(object):
     """
-    Store all information about a single `Epoch`,
-    including its start time and duration,
-    what parameters are changed,
-    and its equilibrium prevalence
+    Store information about a single Epoch
+    in fwd-dream    
+    
+    Example section from an `params_<set>.ini`:
+    
+    [Epoch_Crash]
+    duration = 36500
+    adj_params = gamma
+    adj_vals = 0.012195
+    approach = logistic
+    approach_t = 30
+    div_samp_freq = 5
+    div_samp_t = 365
+    prev_samp_freq = 5
+    prev_samp_t = 365
+    calc_genetics = True
+    save_state = True
+    
+    Example Usage:
+    
+    epoch = Epoch(config, "Epoch_Crash")
+    epoch.set_params(entry_params)
+    epoch.set_timings(start_time)
+    epoch.set_approach()
+    epoch.set_sampling()
+    
+    
     """
+    
     def __init__(self, config, section):
-        self.name = section.split("_")[1]
-        self.section = section
+        
+        # Epoch name
         self.config = config
-        self.occurred = False
-        # parameters
-        self.adj_keys = config.get(section, "adj_params").split(",")
-        self.adj_vals = [float(val) for val in config.get(section, "adj_vals").split(",")]
-        self.adj_params = {key: val for key, val in zip(self.adj_keys, self.adj_vals)}
-        self.entry_params = {}  # Simulation parameters when epoch is entered
-        self.epoch_params = {}  # Simulation parameters at epoch equilibrium
-        self.derived_params = {}
-        self.equil_params = {}
+        self.section = section
+        
+        if not section.startswith("Epoch_"):
+            raise ValueError("Epochs sections must begin with 'Epoch_'.")
+            
+        self.name = section.split("_")[1]
+        
+        # Epoch time        
+        self.duration = config.get(section, "duration")
+        self.t0 = None
+        self.tdelta = None
+        self.t1 = None
+
+        # Epoch entry and equilibrium parameters
+        self.begun = False
+        self.entry_params = None
+        self.epoch_params = None
         self.x_h = None
         self.x_v = None
-        # duration
-        self.start_time = None
-        self.duration = config.get(section, "duration")
-        self.time_to_equil = None
-        self.t0 = None
-        self.telapse = None
-        self.t1 = None
-        self.gen_rate = None
-        self.gens = None
-        # approach
-        self.approaches = config.get(section, "approach").split(",")
+        
+        # Parameter changes entering epoch
+        self.adj_keys = [s.strip() for s in config.get(section, "adj_params").split(",")]
+        self.adj_vals = [float(val) for val in config.get(section, "adj_vals").split(",")]
+        self.adj_params = {key: val for key, val in zip(self.adj_keys, self.adj_vals)}
+        
+        # Timing of parameter changes
+        self.approach = [s.strip() for s in config.get(section, "approach").split(",")]
         self.approach_ts = [float(val) for val in config.get(section, "approach_t").split(",")]
-        self.approach_inputs = {key: val
-                                for key, val
-                                in zip(self.adj_keys, list(zip(self.approaches, self.approach_ts)))}
-        self.approach_t1 = None
-        self.approach_funcs = None
-        # sampling (run .set_sampling(), *after* .set_duration())
-        self.adj_prev_samp = None
-        self.prev_samp_freq = None
-        self.prev_samp_t = None
+        self.approach_t1 = None  # The last time we will update parameters
+        self.tparam = None  # Last time the parameters were updated
+        self.param_update_freq = None
+        
+        if not len(self.adj_params) == len(self.adj_vals):
+            raise ValueError("The number of parameters adjusted by `adj_params` must equal" + \
+                             "the number of values given by `adj_vals`.")
+            
+        if not len(self.approach) == len(self.approach_ts):
+            raise ValueError("The number of approach functions given by `approach` must equal" + \
+                             "the number of approach times given by `approach_ts`.")
+        
+        # Longitudinal sampling of genetic diversity
         self.adj_div_samp = None
         self.div_samp_freq = None
         self.div_samp_t = None
-        # optionals
+        
+        # Longitudinal sampling of prevalence
+        self.adj_prev_samp = None
+        self.prev_samp_freq = None
+        self.prev_samp_t = None
+        
+        # Storage
         self.calc_genetics = config.getboolean(section, "calc_genetics")
-        self.collect_samples = config.getboolean(section, "collect_samples")
-
+        self.save_state = config.getboolean(section, "save_state")
+        
+    
     def set_params(self, entry_params):
         """
-        Set simulation parameter values for the epoch,
-        given entry parameters and adjusted parameters
+        Set entry parameters and equilibrium parameters
+        for the Epoch
+        
+        Parameters
+            entry_params: dict
+                Simulation parameters upon entry to the
+                epoch.
+        Returns
+            Null
+        
         """
-        self.entry_params = entry_params
+        # Set entry parameters
+        self.entry_params = entry_params.copy()
+        
+        # Compute epoch equilbrium paramters
         self.epoch_params = entry_params.copy()
         self.epoch_params.update(self.adj_params)
-
-        self.derived_params = calc_derived_params(self.epoch_params)
-        self.equil_params = calc_equil_params(self.epoch_params, self.derived_params)
-        self.x_h = calc_x_h(**self.equil_params)
-        self.x_v = calc_x_v(**self.equil_params)
-
-        approx_ne = self.x_h * self.epoch_params['nh']
-        approx_gen_time = (self.derived_params['h_v'] + self.derived_params['v_h'])
-        self.time_to_equil = 2 * approx_ne * approx_gen_time
-
-    def set_duration(self, start_time):
+        
+        # Compute epoch host and vector prevalence
+        derived_params = calc_derived_params(self.epoch_params)
+        equil_params = calc_equil_params(self.epoch_params, derived_params)
+        self.x_h = calc_x_h(**equil_params)
+        self.x_v = calc_x_v(**equil_params)
+        
+        
+    def set_timings(self, start_time):
         """
-        Set the duration of the epoch,
-        as well as the number of `generations`,
-        the start time and end time
+        Set the start and end time of the Epoch
+        using the `start_time` and duration
+        information from `self.duration`
+        
+        Parameters
+            start_time: float
+                The start time of the Epoch.
+                
+        Returns
+            Null
+        
         """
-        assert self.time_to_equil is not None, \
-            "Time to equilibrium undefined, run `.set_params()` first."
+        if self.entry_params is None:
+            raise ValueError("Must run `.set_params()` before running `.set_timings()`.")
+        
+        # Start time
         self.t0 = start_time
-        if self.duration == "equil":
-            self.telapse = self.time_to_equil
+        
+        # Duration
+        if self.duration == "equilibrium":
+            # Calculate approximate equilibrium time
+            derived_params = calc_derived_params(self.epoch_params)
+            approx_ne = self.x_h * self.epoch_params["nh"]
+            approx_generation_t = derived_params["h_v"] + derived_params["v_h"]
+            self.tdelta =  2 * approx_ne * approx_generation_t  # E[TMRCA] = 2Ng
         else:
-            self.telapse = int(self.duration)  # we assume an int, specifying duration, has been passed
-        self.t1 = self.t0 + self.telapse
-
-        h1 = max([0, self.x_h * self.epoch_params['nh']])
-        v1 = max([0, self.x_v * self.epoch_params['nv']])
-
-        self.gen_rate = self.epoch_params['bite_rate_per_v'] * self.epoch_params['nv'] \
-                        + self.epoch_params['gamma'] * h1 \
-                        + self.epoch_params['eta'] * v1  # \
-                        #+ self.epoch_params["migration_rate"]  # include migration
-        self.gens = self.telapse * self.gen_rate
-
+            self.tdelta = int(self.duration)  # assuming an int has been passed
+        
+        # End time
+        self.t1 = self.t0 + self.tdelta
+    
+    
     def set_approach(self, n_updates=50.0):
         """
-        Set the 'approach' of the epoch,
-        i.e. how the adjusted parameters approach
-        their new values
+        Prepare the approach times for the Epoch's parameter 
+        changes; the time over which they transition from their 
+        entry and adjusted values.
+        
+        Parameters
+            n_updates: int
+                The number
+        
+        Returns
+            Null
+        
         """
-        assert self.t0 is not None, \
-            "Start time undefined, run `.set_duration()` first."
-        self.approach_funcs = {key: self.gen_approach_func(key, approach, approach_t)
-                               for (key, (approach, approach_t)) in list(self.approach_inputs.items())}
-        self.approach_t1 = self.t0 + np.max(self.approach_ts)
-        self.approach_delay = np.max(self.approach_ts) / n_updates
-
+        if self.t0 is None:
+            raise ValueError("Must run `.set_timings()` before running `.set_approach()`.")
+        
+        # Generate a dictionary that holds functions for each parameter to be updated,
+        # These functions return the parameter's value at a given time.
+        self.approach_funcs = {key: self.gen_approach_func(key, a, a_t)
+                               for (key, a, a_t) in zip(self.adj_params,
+                                                        self.approach,
+                                                        self.approach_ts)}
+        
+        # We don't continuously update parameters, but at a frequency defined below
+        self.approach_t1 = self.t0 + max(self.approach_ts)
+        self.param_update_freq = max(self.approach_ts) / n_updates
+        
+            
+    def set_sampling(self):
+        """
+        Set the sampling rate of prevalence and
+        genetic diversity data during the Epoch
+        
+        Parameters
+            Null
+        Returns
+            Null
+        
+        """
+        if self.t1 is None:
+            raise ValueError("Must run `.set_timings()` before running `.set_sampling()`.")
+        
+        # Prevalence
+        self.adj_prev_samp = self.config.has_option(self.section, "prev_samp_freq")
+        if self.adj_prev_samp:
+            self.prev_samp_freq = self.config.getfloat(self.section, "prev_samp_freq")
+            if self.config.has_option(self.section, "prev_samp_t"):
+                self.prev_samp_t = self.config.getfloat(self.section, "prev_samp_t")
+            else:
+                self.prev_samp_t = self.tdelta # until end of epoch
+        
+        # Diversity
+        self.adj_div_samp = self.config.has_option(self.section, "div_samp_freq")
+        if self.adj_div_samp:
+            self.div_samp_freq = self.config.getfloat(self.section, "div_samp_freq")
+            if self.config.has_option(self.section, "div_samp_t"):
+                self.div_samp_t = self.config.getfloat(self.section, "div_samp_t")
+            else:
+                self.div_samp_t = self.tdelta  # until end of epoch
+        
+    
     def gen_approach_func(self, key, approach, approach_t):
         """
-        For a given parameter, approach, and approach time,
-        return a function specifying the value of the parameter
-        as a function of time
+        Generate functions that define gradual updates
+        
+        Parameters:
+            key: str
+                Parameter for which we will generate an
+                update function.
+            approach: str
+                The functional form that will be used to
+                set the parameter updates. Can be of
+                step, linear, logisitic.
+            approach_t: float
+                The time frame over which the parameter
+                will be updated.
+        
+        Returns
+            approach_function: function
+                This is a function that, given a time,
+                will return the parameter value.
 
-        Note that, if key is "nv" or "nh", we return
-        and integer value
         """
         entry_val = self.entry_params[key]
         epoch_val = self.epoch_params[key]
@@ -208,7 +416,7 @@ class Epoch(object):
                 return val if key != ("nv" or "nh") else int(val)
 
         elif approach == "logistic":
-            def approach_func(t, correct=True):
+            def approach_func(t, correct=False):
                 mu = self.t0 + approach_t / 2
                 n_sds = 10.0
                 scale = approach_t / n_sds
@@ -220,63 +428,205 @@ class Epoch(object):
                     val += m * (t - mu)
                 return val if key != ("nv" or "nh") else int(val)
         else:
-            raise Exception("Approach is unrecognized. Must be one of: <step/linear/logistic>.")
+            raise ValueError("Approach is unrecognized. Must be one of: <step/linear/logistic>.")
 
         return approach_func
-
-    def approach_params(self, t):
+    
+    
+    def adjust_params(self, t):
+        """
+        This method will determine whether or not it's time to 
+        update the parameters again
+        
+        Parameters
+            t : float
+                Current time in the simulation in days.
+        Returns
+            _ : bool
+                True if parameters should be updated.
+        
+        """
+        if (t - self.t0) >= self.approach_t1:
+            return False
+        elif (t - self.tparam) >= self.param_update_freq:
+            return True
+        else:
+            return False
+        
+        
+    def get_params(self, t):
         """
         Return the value of all adjusted parameters
         at time `t`, as a dictionary
+        
+        Parameters
+            t : float
+                Current time in the simulation in days.
+        Returns
+            _ : dict
+                keys : str, parameter names
+                values : appropriate value of parameter at time t
+        
         """
-        return {key: f(t) for key, f in list(self.approach_funcs.items())}
+        self.tparam = t
+        return {key: f(t) for key, f in self.approach_funcs.items()}
 
-    def set_sampling(self):
-        """
-        Set the frequency at which diversity
-        and prevalence samples are taken across the Epoch
-        """
-        # prevalence
-        self.adj_prev_samp = self.config.has_option(self.section, "prev_samp_freq")
-        if self.adj_prev_samp:
-            self.prev_samp_freq = self.config.getfloat(self.section, "prev_samp_freq")
-            if self.config.has_option(self.section, "prev_samp_t"):
-                self.prev_samp_t = self.config.getint(self.section, "prev_samp_t")
-            else:  # defaults to entire epoch
-                self.prev_samp_t = self.telapse
-        # diversity
-        self.adj_div_samp = self.config.has_option(self.section, "div_samp_freq")
-        if self.adj_div_samp:
-            self.div_samp_freq = self.config.getfloat(self.section, "div_samp_freq")
-            if self.config.has_option(self.section, "div_samp_t"):
-                self.div_samp_t = self.config.getint(self.section, "div_samp_t")
-            else:  # defaults to entire epoch
-                self.div_samp_t = self.telapse
+     
+class Epochs(object):
+    """
+    Co-ordinate multiple Epoch classes
+    
+    """
+    def __init__(self, config):
+        
+        # Parse
+        self.params = parse_parameters(config)
+        self.config = config
+        
+        self.init_duration = None
+        self.epoch_sections = None
+        self.exist = None
+        self.max_t0 = None
+        
+        self.current = None
 
-    def calc_prev_samps(self, prev_samp_freq):
+        
+    def set_initialisation(self, verbose=False):
         """
-        Calculate the number of prevalence
-        samples that will be collected
-        during an epoch
+        Set the initialisation duration of the simulation
+        
+        Parameters
+            verbose : bool
+        Returns
+            Null
         """
-        if self.adj_prev_samp:
-            samps_at_adj = self.prev_samp_t / self.prev_samp_freq
-            samps_at_base = (self.telapse - self.prev_samp_t) / prev_samp_freq
-            n_prev_samps = samps_at_adj + samps_at_base
+        
+        self.init_duration = eval(self.config.get('Options', 'init_duration'))
+        if self.init_duration in [None, "equil"]:
+            if verbose:
+                print("Initialising simulation to approximate equilibrium.")
+            derived_params = calc_derived_params(self.params)
+            equil_params = calc_equil_params(self.params, derived_params)
+            x_h = calc_x_h(**equil_params)
+            time_to_equil = 2*x_h*self.params['nh']*(derived_params['h_v'] + derived_params['v_h']) 
+            self.init_duration = time_to_equil
         else:
-            n_prev_samps = self.telapse / prev_samp_freq
-        return n_prev_samps
-
-    def calc_div_samps(self, div_samp_freq):
+            if verbose:
+                print("Initialising simulation to a user-specified duration.")
+        if verbose:
+            print("  Initialisation duration: %d days" % self.init_duration)
+        
+        
+    def prepare_epochs(self, verbose=False):
         """
-        Calculate the number of diversity
-        samples that will be collected
-        during an epoch
+        With this method we will prepare all of the epochs
+             
+        Parameters
+            verbose : bool
+        Returns
+            Null
         """
-        if self.adj_div_samp:
-            samps_at_adj = self.div_samp_t / self.div_samp_freq
-            samps_at_base = (self.telapse - self.div_samp_t) / div_samp_freq
-            n_div_samps = samps_at_adj + samps_at_base
+        
+        # Collect 'Epoch_' sections
+        self.epoch_sections = [s for s in self.config.sections() if "Epoch" in s]
+        
+        # If Epochs exist, prepare them
+        if len(self.epoch_sections) > 0:
+            self.exist = True
+            self.epochs = [Epoch(self.config, s) for s in self.epoch_sections]
+            if verbose: print("Epochs")
+            for (i, epoch) in enumerate(self.epochs):
+                if i == 0:
+                    epoch.set_params(self.params)
+                    epoch.set_timings(self.init_duration)  # begins at end of initialization
+                    epoch.set_approach()
+                    epoch.set_sampling()
+                else:
+                    epoch.set_params(entry_params=self.epochs[i-1].epoch_params)
+                    epoch.set_timings(start_time=self.epochs[i-1].t1)  # begins at end `.t1` of previous epoch
+                    epoch.set_approach()
+                    epoch.set_sampling()
+                if verbose:
+                    print(" ", i+1, ":", epoch.name)
+                    print("    Begins: %d, Ends: %d" % (epoch.t0, epoch.t1))
+                    print("    Adjusting Parameter(s):", epoch.adj_keys)
+                    print("    To Value(s):", epoch.adj_vals)
+                    print("    via.:", epoch.approach)
+                    print("    Approach Time(s):", epoch.approach_ts)
+                    print("    Host Prevalence: %.03f, Vector: %.03f" % (epoch.x_h, epoch.x_v))
+                    print("    Adjust Prevalence Sampling:", epoch.adj_prev_samp)
+                    if epoch.adj_prev_samp:
+                        print("    ...to every %d days for %d days." \
+                              % (epoch.prev_samp_freq, epoch.prev_samp_t))
+                    print("    Adjust Diversity Sampling:", epoch.adj_div_samp)
+                    if epoch.adj_div_samp:
+                        print("    ...to every %d days for %d days." \
+                              % (epoch.div_samp_freq, epoch.div_samp_t))
+            
+            self.max_t0 = self.epochs[-1].t1  # the end of the simulation
+            if verbose:
+                print("  Total Duration: %d days" % self.max_t0)
+        
+    def update_time(self, t):
+        """
+        Check if current epoch needs to be changed,
+        given the time `t`
+        
+        If we have passed the start time of an Epoch,
+        but it has not yet begun, we assign it as
+        the current epoch.
+        
+        """
+        
+        for epoch in self.epochs:
+            if t > epoch.t0 and not epoch.begun:
+                self.current = epoch
+          
+        
+    def write_epochs(self, out_dir, verbose=False):
+        """
+        Write a dataframe `epoch_df.csv`, each row
+        of which contains information about and Epoch
+        within Epochs
+        
+        Parameters
+            out_dir : str
+                Path to output direcftory.
+            verbose : bool
+                Print to stdout?
+        Returns
+            Null
+        
+        """
+        
+        if self.exist:
+            print("Writing Epochs dataframe...")
+            
+            derived_params = calc_derived_params(self.params)
+            equil_params = calc_equil_params(self.params, derived_params)
+            epoch_dt = {
+                "name": ["init"],
+                "t0": [0],
+                "t1": [self.init_duration],
+                "param": [""],
+                "val": [""],
+                "x_h": [calc_x_h(**equil_params)],
+                "x_v": [calc_x_v(**equil_params)]}
+            
+            for epoch in self.epochs:
+                epoch_dt["name"].append(epoch.name)
+                epoch_dt["t0"].append(epoch.t0)
+                epoch_dt["t1"].append(epoch.t1)
+                epoch_dt["param"].append(epoch.adj_keys)
+                epoch_dt["val"].append(epoch.adj_vals)
+                epoch_dt["x_h"].append(epoch.x_h)
+                epoch_dt["x_v"].append(epoch.x_v)
+    
+            epoch_df = pd.DataFrame(epoch_dt)
+            epoch_df.to_csv(os.path.join(out_dir, "epoch_df.csv"), index=False)
+            print("Done.")
+            print("")
         else:
-            n_div_samps = self.telapse / div_samp_freq
-        return n_div_samps
+            print("No Epochs to write.")
+
+            

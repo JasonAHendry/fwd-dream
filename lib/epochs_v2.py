@@ -1,14 +1,17 @@
-import numpy as np
 import os
 import json
-import scipy.stats
 import configparser
+import numpy as np
+import pandas as pd
+
+import scipy.stats
+
 from lib.diagnostics import *
 from lib.generic import *
 
 
 # ================================================================= #
-# Save Simulation State
+# Epoch related functions
 #
 # ================================================================= #
 
@@ -59,12 +62,6 @@ def save_simulation(t0, h_dt, v_dt, t_h, t_v, out_dir):
     return 0
 
 
-# ================================================================= #
-# Parse input parameters
-#
-# ================================================================= #
-
-
 def parse_parameters(config):
     """
     Pass the parameters in an `.ini` file
@@ -98,12 +95,6 @@ def parse_parameters(config):
     params.update(evolution)
     
     return params
-
-
-# ================================================================= #
-# Update vector population
-#
-# ================================================================= #
 
 
 def update_vectors(nv, v, t_v, v_dt):
@@ -160,7 +151,8 @@ def update_vectors(nv, v, t_v, v_dt):
 
 
 # ================================================================= #
-# Define Epoch behaviour
+# class Epoch and Epochs
+# 
 #
 # ================================================================= #
 
@@ -488,7 +480,7 @@ class Epoch(object):
      
 class Epochs(object):
     """
-    Co-ordinate all Epochs
+    Co-ordinate multiple Epoch classes
     
     """
     def __init__(self, config):
@@ -595,3 +587,52 @@ class Epochs(object):
         for epoch in self.epochs:
             if t > epoch.t0 and not epoch.begun:
                 self.current = epoch
+          
+        
+    def write_epochs(self, out_dir, verbose=False):
+        """
+        Write a dataframe `epoch_df.csv`, each row
+        of which contains information about and Epoch
+        within Epochs
+        
+        Parameters
+            out_dir : str
+                Path to output direcftory.
+            verbose : bool
+                Print to stdout?
+        Returns
+            Null
+        
+        """
+        
+        if self.exist:
+            print("Writing Epochs dataframe...")
+            
+            derived_params = calc_derived_params(self.params)
+            equil_params = calc_equil_params(self.params, derived_params)
+            epoch_dt = {
+                "name": ["init"],
+                "t0": [0],
+                "t1": [self.init_duration],
+                "param": [""],
+                "val": [""],
+                "x_h": [calc_x_h(**equil_params)],
+                "x_v": [calc_x_v(**equil_params)]}
+            
+            for epoch in self.epochs:
+                epoch_dt["name"].append(epoch.name)
+                epoch_dt["t0"].append(epoch.t0)
+                epoch_dt["t1"].append(epoch.t1)
+                epoch_dt["param"].append(epoch.adj_keys)
+                epoch_dt["val"].append(epoch.adj_vals)
+                epoch_dt["x_h"].append(epoch.x_h)
+                epoch_dt["x_v"].append(epoch.x_v)
+    
+            epoch_df = pd.DataFrame(epoch_dt)
+            epoch_df.to_csv(os.path.join(out_dir, "epoch_df.csv"), index=False)
+            print("Done.")
+            print("")
+        else:
+            print("No Epochs to write.")
+
+            
