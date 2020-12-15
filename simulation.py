@@ -36,11 +36,17 @@ print("=" * 80)
 # PARSE CLI INPUT
 print("Parsing Command Line Inputs...")
 try:
-    opts, args = getopt.getopt(sys.argv[1:], ":e:p:s:")
-    # python simulation.py -e <expt-name> -p <param_set.ini> -s <clonal/unique>
+    opts, args = getopt.getopt(sys.argv[1:], ":e:p:s:c:")
+    # Example
+    # python simulation.py 
+    # -e <expt_name> 
+    # -p <params/param_file.ini> 
+    # -s <clonal/unique>
+    # -c eta=0.3
 except getopt.GetoptError:
-    print("Option Error. Please conform to:")
-    print("-v <int>")
+    print("Error parsing options.")
+    
+change_param = False
 for opt, value in opts:
     if opt == "-e":
         expt_name = value
@@ -48,6 +54,10 @@ for opt, value in opts:
         param_file = value
     elif opt == "-s":
         seed_method = value
+    elif opt == "-c":
+        change_param = True
+        c = value.split("=")
+        change = {c[0]: eval(c[1])}       
     else:
         print("Parameter %s not recognized." % opt)
         sys.exit(2)
@@ -90,6 +100,14 @@ config.read(param_file)
 
 # Essential
 params = parse_parameters(config)
+
+# Change parameters if specified
+if change_param:
+    print("Changing a simulation parameter...")
+    print("  %s from %f to %f" % (list(change.keys())[0], 
+                                  params[list(change.keys())[0]], 
+                                  list(change.values())[0]))
+    params.update(change)
 
 # Derived & Equilibrium
 derived_params = calc_derived_params(params)
