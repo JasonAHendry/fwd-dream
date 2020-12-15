@@ -55,9 +55,11 @@ for opt, value in opts:
     elif opt == "-s":
         seed_method = value
     elif opt == "-c":
+        change = {}
         change_param = True
-        c = value.split("=")
-        change = {c[0]: eval(c[1])}       
+        for p in value.strip().split(","):
+            c = p.split("=")
+            change[c[0]] = eval(c[1])
     else:
         print("Parameter %s not recognized." % opt)
         sys.exit(2)
@@ -89,6 +91,7 @@ print("  Simulation Name:", sim_name)
 print("  ...the %s simulation of this type." % sim_id)
 print("  Output Directory:", out_dir)
 print("  Seed Method:", seed_method)
+print("  Changing parameter(s)?:", change_param)
 print("Done.")
 print("")
 
@@ -103,10 +106,8 @@ params = parse_parameters(config)
 
 # Change parameters if specified
 if change_param:
-    print("Changing a simulation parameter...")
-    print("  %s from %f to %f" % (list(change.keys())[0], 
-                                  params[list(change.keys())[0]], 
-                                  list(change.values())[0]))
+    print("Changing %d simulation parameters via. CLI..." % len(change.keys()))
+    for k, v in change.items(): print("  %s=%f" % (k, v))
     params.update(change)
 
 # Derived & Equilibrium
