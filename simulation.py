@@ -613,6 +613,8 @@ op.to_csv(os.path.join(out_path, "op.csv"), index=False)
 og.to_csv(os.path.join(out_path, "og.csv"), index=False)
 epochs.write_epochs(out_path, verbose=True)
 
+# Save parameter changes
+json.dump(change, open(os.path.join(out_path, "param_changes.json"), "w"))
 
 # Compute Genetics
 print("Final Simulation State:")
