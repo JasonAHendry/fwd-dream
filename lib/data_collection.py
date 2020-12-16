@@ -63,7 +63,7 @@ class DataCollection(object):
     """
     
     
-    def sample_prevalence(self, t0, nh, nv, h1, v1, h_dt, v_dt):
+    def sample_prevalence(self, t0, nh, nv, h1, v1, h_dt, v_dt, update=True):
         """
         Sample parasite prevalence for both hosts and vectors
         
@@ -87,7 +87,8 @@ class DataCollection(object):
             self.op[k].append(v)
             
         # Update time-of-last-sampling
-        self.tprev = t0
+        if update: 
+            self.tprev = t0
             
         return sample_dt
     
@@ -100,7 +101,7 @@ class DataCollection(object):
     """
     
     
-    def sample_genetics(self, t0, h_dt):
+    def sample_genetics(self, t0, h_dt, update=True):
         """
         Sample parasite genomes from the host population
         and compute a suite of genetic diversity statistics
@@ -131,7 +132,8 @@ class DataCollection(object):
             self.og[k].append(v)
             
         # Update time-of-last-sampling
-        self.tdiv = t0
+        if update:
+            self.tdiv = t0
         
         return sample_dt
 
