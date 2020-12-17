@@ -112,14 +112,17 @@ class DataCollection(object):
         
         # Get allele counts, define SNP positions
         ac = self.get_allele_counts(genomes)
-        pos = np.arange(1, ac.shape[0]+1)
+        nsnps = ac.shape[0]
+        pos = np.arange(1, nsnps+1)
         
         # Compute statistics
         k_dt = self.calc_coi_statistics(ks)
         diversity_dt = self.calc_diversity_statistics(pos, ac)
         if self.track_ibd: 
-            ibd_dt = dict(calc_ibd_statistics(genomes, ixs, 
-                                              rho=0.05, tau=0.1, theta=2.0))  # convert to dict from jit
+            ibd_dt = dict(calc_ibd_statistics(genomes, ixs,   # convert to dict from jit
+                                              rho=4/nsnps,  # allowing ~4 meioses 
+                                              tau=0.05,
+                                              theta=1.0))
         
         # Store
         sample_dt = {}
