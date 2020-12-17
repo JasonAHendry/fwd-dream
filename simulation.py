@@ -338,13 +338,11 @@ while t0 < max_t0:
         # Return to original sampling rates
         if epochs.current.adj_prev_samp:
             if t0 > epochs.current.t0 + epochs.current.prev_samp_t:
-                print("Returning Prevalence Sampling Rate to: %d" % prev_samp_freq)
                 storage.prev_samp_freq = prev_samp_freq
                 epochs.current.adj_prev_samp = False
                 
         if epochs.current.adj_div_samp:
             if t0 > epochs.current.t0 + epochs.current.div_samp_t:
-                print("Returning Diversity Sampling Rate to: %d" % div_samp_freq)
                 storage.div_samp_freq = div_samp_freq
                 epochs.current.adj_div_samp = False
 
@@ -614,7 +612,8 @@ og.to_csv(os.path.join(out_path, "og.csv"), index=False)
 epochs.write_epochs(out_path, verbose=True)
 
 # Save parameter changes
-json.dump(change, open(os.path.join(out_path, "param_changes.json"), "w"))
+if change_param:
+    json.dump(change, open(os.path.join(out_path, "param_changes.json"), "w"))
 
 # Compute Genetics
 print("Final Simulation State:")
