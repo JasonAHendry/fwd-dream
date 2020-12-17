@@ -80,7 +80,7 @@ class DataCollection(object):
         sample_dt["Vm"] = sum([self.detect_mixed(genomes, self.detection_threshold) 
                                for idv, genomes in v_dt.items()])
         sample_dt["HmX"] = sample_dt["Hm"] / nh
-        sample_dt["VmX"] = sample_dt["Vm"] / nh
+        sample_dt["VmX"] = sample_dt["Vm"] / nv
         
         # Store
         for k, v in sample_dt.items():
