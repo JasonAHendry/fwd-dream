@@ -194,7 +194,7 @@ def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, nsnps=0):
     nh = len(hh)
     nreps = np.random.poisson(ti * drift_rate)
     
-    if nreps > len(hh):  # if many reproductions, try to minimise array copies
+    if nreps > 0:
         for _ in range(nreps):
             i = int(random.random() * nh)
             if random.random() < theta * nsnps:  # mutation
@@ -232,7 +232,7 @@ def evolve_vector(vv, ti, theta=0.0, drift_rate=0.0, nsnps=0):
     nv = len(vv)
     nreps = np.random.poisson(ti * drift_rate)
     
-    if nreps > len(vv):
+    if nreps > 0:
         for _ in range(nreps):
             i = int(random.random() * nv)
             if random.random() < theta * nsnps:  # mutation
