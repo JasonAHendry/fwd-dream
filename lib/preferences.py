@@ -3,61 +3,74 @@ import numpy as np
 import matplotlib as mpl
 
 
+# ================================================================= #
+# Metric Names
+#
+#
+# ================================================================= #
 
 
-# METRIC GROUPINGS
-ops_metrics = ["HX", "VX", "HmX", "VmX"]
+# Names for prevalence statistics
+op_names = {"H1": "No. Infected Hosts, Total",
+            "Hm": "No. Infected Hosts, Mixed",
+            "HX": "Host Prevalence",
+            "HmX": "Host Mixed Prevalence",
+            "V1": "No. Infected Vectors, Total",
+            "Vm": "No. Infected Vectors, Mixed",
+            "VX": "Vector Prevalence", 
+            "VmX": "Vector Mixed Prevalence"}
 
 
-genetic_metrics = ["n_re_genomes", "n_mixed_genomes", "frac_mixed_genomes",
-                   "n_re_samples", "n_mixed_samples", "frac_mixed_samples",
-                   "n_fixed_ref", "n_fixed_alt",
-                   "mean_k",
-                   "n_barcodes", "single_barcodes", "frac_uniq_barcodes",
-                   "n_variants", "n_segregating", "n_singletons",
-                   "pi", "theta", "tajd"]
+# Names for genetic diversity metrics
+genetic_names = {
+    "n_samples": "No. Samples",
+    "n_genomes": "No. Genomes",
+    "n_mixed_samples": "No. Mixed Samples",
+    "frac_mixed_samples": "Frac. Mixed Samples",
+    "mean_k": "Mean COI",
+    "max_k": "Max. COI",
+    "n_variants": "No. Variants",
+    "n_segregating": "No. Segregating",
+    "n_singletons": "No. Singletons",
+    "pi": "Nucleotide Diversity ($ \pi $)",
+    "theta": r"Watterson's Theta ($ \theta_w $)",
+    "tajd": "Tajima's $D$"
+}
 
+# IBD related
+ibd_metrics = [prefix + suffix 
+               for prefix in ["f_ibd", "l_ibd", "f_ibs", "l_ibs"] 
+               for suffix in ["", "_bw", "_wn"]]
+for metric in ibd_metrics:
+    name = ""
+    if metric[0] == "f":
+        name += "Fraction"
+    elif metric[0] == "l":
+        name += "Mean Length" 
+    if "ibd" in metric:
+        name += " IBD"
+    elif "ibs" in metric:
+        name += " IBS"
+    if "_bw" in metric:
+        name += " Between Hosts"
+    elif "_wn" in metric:
+        name += " Within Host"
+    genetic_names.update({ metric: name })
 
-ibd_metrics = ["avg_frac_ibd", "avg_n_ibd", "avg_l_ibd"]
+      
+# ================================================================= #
+# Selecting Metrics
+#
+#
+# ================================================================= #
 
 
 tight_metrics = ['frac_mixed_samples', 'mean_k',
                  'n_segregating', 'n_singletons',
                  'pi', 'theta', 'tajd',
                  'avg_frac_ibd', 'avg_n_ibd', 'avg_l_ibd']
-
-
-
-
-# METRIC NAMES (FOR PLOTTING)
-genetic_names = {"n_re_genomes": "No. Genomes",
-                 "n_mixed_genomes": "No. Mixed Genomes",
-                 "frac_mixed_genomes": "Frac. Mixed Genomes",
-                 "n_re_samples": "No. Samples",
-                 "n_mixed_samples": "No. Mixed Samples",
-                 "frac_mixed_samples": "Frac. Mixed Samples",
-                 "n_fixed_ref": "No. Fixed Ref. Sites",
-                 "n_fixed_alt": "No. Fixed Alt. Sites",
-                 "mean_k": "Complexity of Infection (Mean $k$)",
-                 "n_barcodes": "No. Unique Barcodes",
-                 "single_barcodes": "No. Barcodes Seen Only Once",
-                 "frac_uniq_barcodes": "Frac. Barcodes Seen Only Once",
-                 "n_variants": "No. Variants",
-                 "n_segregating": "No. Segregating",
-                 "n_singletons": "No. Singletons",
-                 "pi": "Nucleotide Diversity ($ \pi $)",
-                 "theta": r"Watterson's Theta ($ \theta_w $)",
-                 "tajd": "Tajima's $D$",
-                 "avg_frac_ibd": "Avg. Frac. IBD",
-                 "avg_n_ibd": "Avg. No. IBD Tracks",
-                 "avg_l_ibd": "Avg. IBD Track Length (bp)"}
-
-
-op_names = {"HX": "Host Prevalence", 
-            "HmX": "Host Mixed Prevalence",
-            "VX": "Vector Prevalence", 
-            "VmX": "Vector Mixed Prevalence"}
-
+    
+    
 def remove_metrics(rmv, metrics):
     """
     Remove `rmv` metrics from `metrics`
@@ -65,9 +78,13 @@ def remove_metrics(rmv, metrics):
     return [g for g in metrics if g not in rmv]
 
 
+# ================================================================= #
+# Colours and groupings for metrics
+#
+#
+# ================================================================= #
 
 
-# PRE-BAKED COLOUR SCHEMES
 prevalence_cols = ['#d73027','#fc8d59','#2166ac', '#67a9cf']
 prevalence_col_dt = dict(zip(["HX", "HmX", "VX", "VmX"], prevalence_cols))
 
@@ -140,3 +157,4 @@ def create_metric_colours(pal, genetic_metrics, genetic_grps):
         col_dt[metric] = pal_grp[l[metric]]
 
     return col_dt
+
