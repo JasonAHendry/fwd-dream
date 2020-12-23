@@ -3,7 +3,7 @@ Generate BMRC submission files for fwd-dream to conduct
 an experiment exploring how genetic diversity statistics 
 are correlated with parasite prevalence
 
-2020/12/16, JHendry
+2020/12/23, JHendry
 """
 
 
@@ -42,6 +42,7 @@ print("Parsing Command Line Inputs...")
 
 # Defaults
 change_param = False
+run_sensitivity = False
 
 # Parse
 try:
@@ -57,6 +58,7 @@ for opt, value in opts:
         print("  Parameter file: %s" % param_file)
     elif opt == "-s":
         sens_file = value
+        run_sensitivity = True
         print("  Sensitivity file: %s" % sens_file)
     elif opt == "-n":
         n_reps = int(value)
@@ -79,52 +81,65 @@ print("Loading Parameter File...")
 config = configparser.ConfigParser()
 config.read(param_file)
 params = parse_parameters(config)
+derived_params = calc_derived_params(params)
+print("Done.")
+print("")
 
 
 # LOAD SENSITIVITY FILE
-print("Loading Sensitivity File...")
-config = configparser.ConfigParser()
-config.read(sens_file)
+if run_sensitivity:
+    print("Loading Sensitivity File...")
+    config = configparser.ConfigParser()
+    config.read(sens_file)
 
-# Instantiate sensitivity dictionary
-sensitivity = {}
+    # Instantiate sensitivity dictionary
+    sensitivity = {}
 
-# Extract parameters from config
-demography = {param: [int(v) for v in val.strip().split(",")]
-              for param, val in config.items('Demography')}
-transmission = {param: [float(v) for v in val.strip().split(",")]
-                for param, val in config.items('Transmission')}
-evolution = {param: [float(v) for v in val.strip().split(",")]
-             for param, val in config.items('Evolution')}
+    # Extract parameters from config
+    demography = {param: [int(v) for v in val.strip().split(",")]
+                  for param, val in config.items('Demography')}
+    transmission = {param: [float(v) for v in val.strip().split(",")]
+                    for param, val in config.items('Transmission')}
+    evolution = {param: [float(v) for v in val.strip().split(",")]
+                 for param, val in config.items('Evolution')}
 
-# Construct dictionary
-sensitivity.update(demography)
-sensitivity.update(transmission)
-sensitivity.update(evolution)
+    # Construct dictionary
+    sensitivity.update(demography)
+    sensitivity.update(transmission)
+    sensitivity.update(evolution)
+    
+    # Draw from uniform rv?
+    draw_uniform = False
+    print(" Draw from uniform distribution:", draw_uniform)
+    
+    print("Done.")
+    print("")
+else:
+    print("Not performing sensitivity analysis.")
 
 
 # WRITE SUBMISSION FILE
 # Define experiment settings
-print("Experiment settings...")
-draw_uniform = False
+print("Defining experiment settings...")
 prevs = np.arange(0.1, 0.9, 0.1)
-print(" Draw from uniform distribution:", draw_uniform)
 print(" Prevalence range:", prevs)
+print("Done.")
 
-# Compute total number of experiments that will be run
-n_params_perturbed = len(sensitivity.keys())
-n_param_combos = sum([len(v) + 1 for k, v in sensitivity.items()]) # parameter combinations
-n_expt_types = 3
-n_prev = len(prevs)
-print("Experiment statistics")
-print("  No. parameters perturbed: %d" % n_params_perturbed)
-print("  No. parameter combinations: %d" % n_param_combos)
-print("  No. experiment types: %d" % n_expt_types)
-print("  No. prevalence values: %d" % n_prev)
-print("  No. replicates: %d" % n_reps)
-print("  TOTAL: %d" % (n_param_combos*n_expt_types*n_prev*n_reps))
+# COMPUTE NUMBER OF SIMULATIONS TO SUBMIT
+print("Number of experiments: %d" % 3)  # nv, gamma, br
+print("Number of replicates: %d" % n_reps)
+print("Number of prevalence levels: %d" % len(prevs))
+print("Sensitivity analysis?", run_sensitivity)
+if run_sensitivity:
+    n_param_combos = sum([len(v) + 1 for k, v in sensitivity.items()])
+    print("  Parameter combinations: %d" % n_param_combos)
+else:
+    n_param_combos = 1
+n_total = 3*n_reps*len(prevs)*n_param_combos
+print("TOTAL: %d" % n_total)
 
 # Prepare submission files
+print("Preparing submission files...")
 f_br = open("submit_br-correlations.sh", "w")
 f_gamma = open("submit_gamma-correlations.sh", "w")
 f_nv = open("submit_nv-correlations.sh", "w")
@@ -132,6 +147,8 @@ f_nv = open("submit_nv-correlations.sh", "w")
 for f in [f_br, f_gamma, f_nv]:
     f.write("="*80+"\n")
     f.write("Submit a series of correlation experiments to BMRC\n")
+    f.write("Generated at: %s\n" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    f.write("Total: %d\n" % (n_total/3))
     f.write("-"*80+"\n")
     f.write("\n")
     
@@ -141,58 +158,71 @@ statement += " -e %s"  # will change depending on br, gamma, nv
 statement += " -p %s" % param_file
 statement += " -s clonal"
 
-# Now we iterate over all perturbations
-print("Perturbing parameters and writing...")
-for s, vals in sensitivity.items():
-    print("-"*80)
-    print("Perturbing parameter: %s" % s)
-    print("")
-    print("High:", vals[1])
-    print("Default:", params[s])
-    print("Low:", vals[0])
-    print("")
+# Iterate over all parameter combinations
+print("Writing submission statements for all parameter combinations...")
+for p in prevs:
+    print("="*80)
+    print("Host Prevalence: %.02f" % p)
     
-    # Perturbatio method
-    if draw_uniform:
-        pass
-    else:
-        vals.append(params[s]) # append the default value
-        
-        for v in vals:
-            qsub = statement
-            qsub += " -c %s=%s" % (s, str(v))
+    # Calc. adjusments to achieve prevalence
+    nv = nv_at_x_h(x_h=p, params=params)
+
+    gamma = gamma_at_x_h(x_h=p, params=params, 
+                         derived_params=derived_params)
+
+    br = bite_rate_per_v_at_x_h(x_h=p, params=params,
+                                derived_params=derived_params)
+    
+    # Write submission statments
+    dt = {
+        "nv": (f_nv, nv),
+        "gamma": (f_gamma, gamma),
+        "br": (f_br, br)
+    }
+    
+    for name, (f, adj) in dt.items():
+        for _ in range(n_reps):
+            f.write(statement % (expt_name + "-" + name))
+            f.write(" -c %s=%s" % (name, adj))
+            f.write("\n")
+    
+    if run_sensitivity:
+        print("Running sensitivity analysis at this prevalence level...")
+        for s, vals in sensitivity.items():
+            print("  Perturb: %s" % s)
+            print("    Range:", vals)
             
-            for p in prevs:
-                
-                # Copy & perturb parameters
-                params_changed = params.copy()  # make a copy of the base parameter file
-                params_changed.update({s: v})  # change a parameter
-                derived_params_changed = calc_derived_params(params_changed)
-                
-                # Calc. adjusments to achieve prevalence
-                nv = nv_at_x_h(x_h=p,
-                               params=params_changed)
-                
-                gamma = gamma_at_x_h(x_h=p, 
-                                     params=params_changed, 
-                                     derived_params=derived_params_changed)
-                
-                br = bite_rate_per_v_at_x_h(x_h=p, 
-                                            params=params_changed,
-                                            derived_params=derived_params_changed)
-                
-                # Write submission statments
-                dt = {
-                    "nv": [f_nv, nv],
-                    "gamma": [f_gamma, gamma],
-                    "br": [f_br, br]
-                }
-                
-                for name, l in dt.items():
-                    f, adj = l[0], l[1]
-                    for _ in range(n_reps):
-                        f.write(qsub % (expt_name + "-" + name))  # correct expt name
-                        f.write(",%s=%s\n" % (name, adj))
+            if draw_uniform:
+                print("Error: drawing uniform not built.")
+                sys.exit(2)
+            else:
+                for v in vals:
+                    # Copy & perturb parameters
+                    params_changed = params.copy()
+                    params_changed.update({s: v})
+                    derived_params_changed = calc_derived_params(params_changed)
+
+                    # Calc. adjusments to achieve prevalence
+                    nv = nv_at_x_h(x_h=p,
+                                   params=params_changed)
+
+                    gamma = gamma_at_x_h(x_h=p, 
+                                         params=params_changed, 
+                                         derived_params=derived_params_changed)
+
+                    br = bite_rate_per_v_at_x_h(x_h=p, 
+                                                params=params_changed,
+                                                derived_params=derived_params_changed)
+                    
+                    # Write submission statements
+                    for name, (f, adj) in dt.items():
+                        for _ in range(n_reps):
+                            f.write(statement % (expt_name + "-" + name))
+                            f.write(" -c %s=%s,%s=%s" % (s, v, name, adj))
+                            f.write("\n")
+    print("Done.")
+    print("")
+    print("-"*80)
 
 # Close all files
 for f in [f_br, f_gamma, f_nv]:
