@@ -20,6 +20,7 @@ from lib.epochs import *
 from lib.core import *
 from lib.data_collection import *
 from lib.generic import *
+from lib.preferences import *
 
 
 print("=" * 80)
@@ -583,9 +584,23 @@ t_h[:] = t0
 print("Done.")
 print("")
 
+# WRITE RESULTS
+print("Writing Outputs...")
+op = pd.DataFrame(storage.op)
+og = pd.DataFrame(storage.og)
+op.to_csv(os.path.join(out_path, "op.csv"), index=False)
+og.to_csv(os.path.join(out_path, "og.csv"), index=False)
+epochs.write_epochs(out_path)
 
-# RUN DETAILS
-print("Events simulated")
+# Save parameter changes
+if change_param:
+    json.dump(change, open(os.path.join(out_path, "param_changes.json"), "w"))
+    
+# Save events simulated
+json.dump(history, open(os.path.join(out_path, "event_history.json"), "w"))
+
+# PRINT RUN DETAILS
+print("Epidemiological Events Simulated")
 total = sum(history.values())
 infection = history["inf_h"] + history["inf_v"]
 superinfection = history["superinf_h"] + history["superinf_v"]
@@ -602,50 +617,34 @@ print("    Host: %d (%.02f%%)" % (history["clear_h"], 100*history["clear_h"]/tot
 print("    Vector: %d (%.02f%%)" % (history["clear_v"], 100*history["clear_v"]/total))
 print("")
 
-
-# WRITE RESULTS
-print("Writing Outputs...")
-op = pd.DataFrame(storage.op)
-og = pd.DataFrame(storage.og)
-op.to_csv(os.path.join(out_path, "op.csv"), index=False)
-og.to_csv(os.path.join(out_path, "og.csv"), index=False)
-epochs.write_epochs(out_path, verbose=True)
-
-# Save parameter changes
-if change_param:
-    json.dump(change, open(os.path.join(out_path, "param_changes.json"), "w"))
-
 # Compute Genetics
-print("Final Simulation State:")
-print("*"*80)
+print("Final Population State")
 if h1 > 0:
-    final_prevalence = storage.sample_prevalence(t0=storage.tprev + storage.prev_samp_freq, 
-                                                 h1=h1, v1=v1, 
-                                                 nh=params['nh'], nv=params['nv'], 
-                                                 h_dt=h_dt, 
-                                                 v_dt=v_dt, update=False)
-    final_genetics = storage.sample_genetics(t0=t0, h_dt=h_dt, update=False)
+    print("  Prevalence Statistics")
+    for metric, value in op.iloc[-1][1:].items():
+        print("   %s: %.02f" % (op_names[metric], value))
+    print("")
     
-    for k, v in final_genetics.items():
-        print("%s:\t%0.2f" % (k, v))         
+    print("  Genetic Diversity Statistics")
+    for metric, value in og.iloc[-1][1:].items():
+        statement = "    %s:"
+        statement += " %d" if metric.startswith("n_") else " %.03f"
+        print(statement % (genetic_names[metric], value))     
 else:
     print("Human parasite population currently extinct!")
     print("... can't compute genetics.")
-print("*"*80)
-print("Done.")
 print("")
 
 # Save run diagnostics
 peak_memory_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 10**6
 end_time = time.time()
 runtime = str(datetime.timedelta(seconds=end_time - start_time))
-print("Peak memory usage: %dMb" % peak_memory_mb)
-print("Total simulation run-time (HH:MM:SS): %s" % runtime)
+print("Run Diagnostics")
+print("  Peak memory usage: %dMb" % peak_memory_mb)
+print("  Total simulation run-time (HH:MM:SS): %s" % runtime)
 json.dump({"runtime": runtime, "peak_mem_mb": peak_memory_mb}, 
           open(os.path.join(out_path, "run_diagnostics.json"), "w"))
-
-# Save events simulated
-json.dump(history, open(os.path.join(out_path, "event_history.json"), "w"))
+print("")
 
 print("-" * 80)
 print("Finished at: %s" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
