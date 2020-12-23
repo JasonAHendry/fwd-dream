@@ -17,10 +17,12 @@ params/*.csv
 !params/README.txt
 
 # Ignore all generated figures, excluding those from example
-figs/*.png
-figs/*.pdf
+figs
 !figs/sec0_default-genetics.png
 !figs/sec0_default-prevalence.png
+
+# Ignore notebooks under development
+notebooks/development
 
 # Ignore .ai of logo
 images/*.ai
@@ -28,3 +30,6 @@ images/*.ai
 # Ignore BMRC cluster specific folders
 stdout_sim
 stderr_sim
+
+# Ignore BMRC cluster submission scripts
+submit_*.sh
