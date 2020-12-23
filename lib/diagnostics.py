@@ -70,7 +70,7 @@ def nv_at_x_h(x_h, params):
     a = params["gamma"]*params["eta"]
     b = x_h*params["gamma"]*params["bite_rate_per_v"]*params["p_inf_v"]
     c = (params["bite_rate_per_v"]**2)*params["p_inf_h"]*params["p_inf_v"]*(1 - x_h)
-    return params["nh"]*(a + b)/c
+    return int(params["nh"]*(a + b)/c)  # must be an integer
 
 
 def gamma_at_x_h(x_h, params, derived_params):
