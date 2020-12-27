@@ -145,11 +145,11 @@ f_gamma = open("submit_gamma-correlations.sh", "w")
 f_nv = open("submit_nv-correlations.sh", "w")
 
 for f in [f_br, f_gamma, f_nv]:
-    f.write("="*80+"\n")
-    f.write("Submit a series of correlation experiments to BMRC\n")
-    f.write("Generated at: %s\n" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    f.write("Total: %d\n" % (n_total/3))
-    f.write("-"*80+"\n")
+    f.write("#" + "="*80+"\n")
+    f.write("# Submit a series of correlation experiments to BMRC\n")
+    f.write("# Generated at: %s\n" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    f.write("# Total: %d\n" % (n_total/3))
+    f.write("#" + "-"*80+"\n")
     f.write("\n")
     
 # Prepare a template for the submission statement
@@ -227,7 +227,7 @@ for p in prevs:
 # Close all files
 for f in [f_br, f_gamma, f_nv]:
     f.write("\n")
-    f.write("="*80+"\n")
+    f.write("#" + "="*80+"\n")
     f.close()
 print("Done.")
 print("")
