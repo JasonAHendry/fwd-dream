@@ -477,10 +477,10 @@ class Epochs(object):
     Co-ordinate multiple Epoch classes
     
     """
-    def __init__(self, config):
+    def __init__(self, params, config):
         
         # Parse
-        self.params = parse_parameters(config)
+        self.params = params
         self.config = config
         
         self.init_duration = None

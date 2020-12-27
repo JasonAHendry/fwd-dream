@@ -167,7 +167,7 @@ print("")
 
 
 # PARSE EPOCHS
-epochs = Epochs(config)
+epochs = Epochs(params, config)
 epochs.set_initialisation(verbose=True)
 epochs.prepare_epochs(verbose=True)
 max_t0 = epochs.max_t0  # pull this out of class for speed
