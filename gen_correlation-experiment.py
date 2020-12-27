@@ -177,7 +177,7 @@ for p in prevs:
     dt = {
         "nv": (f_nv, nv),
         "gamma": (f_gamma, gamma),
-        "br": (f_br, br)
+        "bite_rate_per_v": (f_br, br)
     }
     
     for name, (f, adj) in dt.items():
