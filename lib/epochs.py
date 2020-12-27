@@ -295,7 +295,7 @@ class Epoch(object):
         self.t0 = start_time
         
         # Duration
-        if self.duration == "equilibrium":
+        if self.duration is not None:
             # Calculate approximate equilibrium time
             derived_params = calc_derived_params(self.epoch_params)
             approx_ne = self.x_h * self.epoch_params["nh"]
@@ -502,7 +502,7 @@ class Epochs(object):
         """
         
         self.init_duration = eval(self.config.get('Options', 'init_duration'))
-        if self.init_duration in [None, "equil"]:
+        if self.init_duration is None:
             if verbose:
                 print("Initialising simulation to approximate equilibrium.")
             derived_params = calc_derived_params(self.params)
