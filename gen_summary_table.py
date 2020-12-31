@@ -53,7 +53,7 @@ e = 0
 print("  Number of simulations: %d" % len(os.listdir(expt_dir)))
 for sim in os.listdir(expt_dir):
     sim_path = os.path.join(expt_dir, sim)
-    if "Endpoint" in os.listdir(sim_path):
+    if "epoch_df.csv" in os.listdir(sim_path):
         # Load data
         og = pd.read_csv(os.path.join(sim_path, "og.csv"))
         op = pd.read_csv(os.path.join(sim_path, "op.csv"))
