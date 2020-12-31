@@ -68,7 +68,7 @@ def regress_boxplot(metric, x_h, df, ax, palette):
     ax.set_xlim(xlims)
     # Legend
     ax.annotate(xy=(0.05, 0.85), xycoords='axes fraction',
-                s="$ r^2 = $ %.02f" % ols.rsquared, fontsize=10,
+                text="$ r^2 = $ %.02f" % ols.rsquared, fontsize=10,
                 bbox=dict(facecolor='white', edgecolor='grey'), zorder=5)
 
     return None
@@ -97,7 +97,7 @@ def regress_violinplot(metric, x_h, df, ax, palette):
     ax.set_xlim(xlims)
     # Legend
     ax.annotate(xy=(0.05, 0.85), xycoords='axes fraction',
-                s="$ r^2 = $ %.02f" % ols.rsquared, fontsize=10,
+                text="$ r^2 = $ %.02f" % ols.rsquared, fontsize=10,
                 bbox=dict(facecolor='white', edgecolor='grey'), zorder=5)
 
     return None
@@ -125,7 +125,7 @@ def regress_scatterplot(metric, x_h, ot, ax, color, **kwargs):
     ax.set_xlim(xlims)
     # Legend
     ax.annotate(xy=(0.05, 0.875), xycoords='axes fraction',
-                s="$ r^2 = $ %.02f" % ols.rsquared, fontsize=10,
+                text="$ r^2 = $ %.02f" % ols.rsquared, fontsize=10,
                 bbox=dict(facecolor='white', edgecolor='grey'), zorder=5)
 
 
