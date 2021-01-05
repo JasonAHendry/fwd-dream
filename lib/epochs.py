@@ -40,24 +40,51 @@ def save_simulation(t0, h_dt, v_dt, t_h, t_v, out_dir):
             Array giving the last time (in days) that
             a given vector's state was updated.
     Returns
-        Null
+        Saves the state of the simulation in six arrays:
+        
+        h_ixs : ndarray, int, shape (n_inf_hosts, )
+            Indexes of the infected hosts, corresponding to
+            `t_h`.
+        h_genomes : ndarray, float, shape (nph, nsnps, n_inf_hosts)
+            The genetic material carried by each infected host. Note
+            that hosts are indexed by the last dimension.
+        t_h : as in Parameters
+        v_ixs : same as h_ixs but for vectors
+        v_genomes : same as h_genomes but for vectors
+        t_v : as in Parameters
+        
+        The time is saved as a dictionary `t0.json`.
         
     """
     
-    # Save the time
+    # Save the current time
     json.dump({"t0" : t0}, open(os.path.join(out_dir, "t0.json"), "w"), default=default)
     
-    # Save infect genomes
-    json.dump({int(k): v for k, v in h_dt.items()},  # necessary to make JSON serialisable
-              open(os.path.join(out_dir, "h_dt.json"), "w"), 
-              default=default)
-    json.dump({int(k): v for k, v in v_dt.items()}, 
-              open(os.path.join(out_dir, "v_dt.json"), "w"), 
-              default=default)
-    
-    # Save time since last update
+    # Save the time since last update
     np.save(os.path.join(out_dir, "t_h.npy"), t_h)
     np.save(os.path.join(out_dir, "t_v.npy"), t_v)
+    
+    # Save the host state
+    h_ixs = []
+    h_genomes = []
+    for ix, genome in h_dt.items():
+        h_ixs.append(ix)
+        h_genomes.append(genome)
+    h_ixs = np.array(h_ixs)
+    h_genomes = np.dstack(h_genomes)
+    np.save(os.path.join(out_dir, "h_ixs.npy"), h_ixs)
+    np.save(os.path.join(out_dir, "h_genomes.npy"), h_genomes)
+    
+    # Save the vector state
+    v_ixs = []
+    v_genomes = []
+    for ix, genome in v_dt.items():
+        v_ixs.append(ix)
+        v_genomes.append(genome)
+    v_ixs = np.array(v_ixs)
+    v_genomes = np.dstack(v_genomes)
+    np.save(os.path.join(out_dir, "v_ixs.npy"), v_ixs)
+    np.save(os.path.join(out_dir, "v_genomes.npy"), v_genomes)
     
     return 0
 
@@ -295,7 +322,7 @@ class Epoch(object):
         self.t0 = start_time
         
         # Duration
-        if self.duration is not None:
+        if self.duration is None:
             # Calculate approximate equilibrium time
             derived_params = calc_derived_params(self.epoch_params)
             approx_ne = self.x_h * self.epoch_params["nh"]
