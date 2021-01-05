@@ -389,10 +389,11 @@ def get_ibs_segments(ibs):
     for state in ibs:
         if state:
             l += 1
-        else:
+        elif l > 0:
             ibs_segs.append(l)
             l = 0
-    if l > 0: ibs_segs.append(l)  # append last segment
+    if l > 0: 
+        ibs_segs.append(l)  # append last segment
 
     return np.array(ibs_segs)
 
