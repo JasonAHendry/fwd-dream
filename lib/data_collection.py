@@ -514,7 +514,7 @@ def get_ibd_segments(ibs, rho, emiss):
 
 #@staticmethod
 @jit(nopython=True)
-def calc_ibd_statistics(genomes, ixs, rho, tau, theta):
+def calc_ibd_statistics(genomes, ixs, rho, tau, theta, l_threshold=25):
     """
     Calculate IBD (and IBS) statistics for every pair 
     of `genomes` that have been collected, taking note
@@ -540,6 +540,10 @@ def calc_ibd_statistics(genomes, ixs, rho, tau, theta):
             are in IBD if they are copies of the same
             ancestral allele that existed before `tau`,
             i.e. MRCA existed before `tau`.
+        l_threshold : float
+            Length threshold on IBS to be assigned as
+            IBD; IBS fragments longer than or equal to
+            this length will be considered IBD.
 
     Returns
         popn_dt: dict
@@ -563,7 +567,7 @@ def calc_ibd_statistics(genomes, ixs, rho, tau, theta):
     pair_type = np.zeros(n_pairs, np.bool_)
 
     # Compute emission matrix for IBD HMM
-    emiss = calc_ibd_emissions(tau, theta)
+    #emiss = calc_ibd_emissions(tau, theta)
 
     # Perform pairwise comparisons
     ix = 0
@@ -572,7 +576,8 @@ def calc_ibd_statistics(genomes, ixs, rho, tau, theta):
 
             ibs = (genomes[:, i] == genomes[:, j]).astype(np.int8)
             ibs_segments = get_ibs_segments(ibs)
-            ibd_segments = get_ibd_segments(ibs, rho, emiss)
+            #ibd_segments = get_ibd_segments(ibs, rho, emiss)
+            ibd_segments = ibs_segments[ibs_segments >= l_threshold]
 
             if len(ibs_segments) > 0:
                 pairwise_dt["f_ibs"][ix] = ibs_segments.sum()
