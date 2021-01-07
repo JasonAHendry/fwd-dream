@@ -97,7 +97,7 @@ print("")
 # Write output
 print("Storing results...")
 output_path = os.path.join(output_dir, expt_name + ".csv")
-final_df.to_csv(output_path)
+final_df.to_csv(output_path, index=False)
 print("  Output:", output_path)
 print("Done.")
 print("")
