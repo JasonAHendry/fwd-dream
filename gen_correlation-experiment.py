@@ -121,7 +121,7 @@ else:
 # WRITE SUBMISSION FILE
 # Define experiment settings
 print("Defining experiment settings...")
-prevs = np.arange(0.1, 0.9, 0.1)
+prevs = np.arange(0.1, 0.8, 0.1)
 print(" Prevalence range:", prevs)
 print("Done.")
 
