@@ -197,11 +197,10 @@ def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, nsnps=0):
     if nreps > 0:
         for _ in range(nreps):
             i = int(random.random() * nh)
+            j = int(random.random() * nh)
+            hh[j] = hh[i]  # drift
             if random.random() < theta * nsnps:  # mutation
-                hh[i, int(random.random() * nsnps)] = random.random()
-            else:  # drift
-                j = int(random.random() * nh)
-                hh[i] = hh[j]
+                hh[j, int(random.random() * nsnps)] = random.random()
         
     return hh
 
@@ -235,11 +234,10 @@ def evolve_vector(vv, ti, theta=0.0, drift_rate=0.0, nsnps=0):
     if nreps > 0:
         for _ in range(nreps):
             i = int(random.random() * nv)
+            j = int(random.random() * nv)
+            vv[j] = vv[i]  # drift
             if random.random() < theta * nsnps:  # mutation
-                vv[i, int(random.random() * nsnps)] = random.random()
-            else:  # drift
-                j = int(random.random() * nv)
-                vv[i] = vv[j]
+                vv[j, int(random.random() * nsnps)] = random.random()
         
     return vv
 
