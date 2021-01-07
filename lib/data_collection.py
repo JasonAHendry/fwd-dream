@@ -32,15 +32,22 @@ class DataCollection(object):
     
     # Initialise with no data
     def __init__(self, prev_samp_freq, div_samp_freq,
-                 max_samples, detection_threshold, track_ibd):
+                 max_samples, detection_threshold, 
+                 track_ibd, l_threshold=None):
         
         # Data Storage
         self.og = {k:[] for k in self.genetic_statistics}
         self.op = {k:[] for k in self.prevalence_statistics}
         
+        # IBD
         self.track_ibd = track_ibd
         if self.track_ibd: 
             self.og.update({k:[] for k in self.ibd_statistics})
+            
+            if l_threshold is not None:
+                self.l_threshold = l_threshold
+            else:
+                raise Exception("`l_threshold` must be set if `track_ibd` is True.")
         
         # Frequency of collection
         self.tprev = 0
@@ -52,6 +59,7 @@ class DataCollection(object):
         # Number of samples to collect
         self.max_samples = max_samples
         self.detection_threshold = detection_threshold
+        
 
         
         
@@ -122,7 +130,8 @@ class DataCollection(object):
             ibd_dt = dict(calc_ibd_statistics(genomes, ixs,   # convert to dict from jit
                                               rho=4/nsnps,  # allowing ~4 meioses 
                                               tau=0.05,
-                                              theta=1.0))
+                                              theta=1.0,
+                                              l_threshold=self.l_threshold))
         
         # Store
         sample_dt = {}
@@ -514,7 +523,7 @@ def get_ibd_segments(ibs, rho, emiss):
 
 #@staticmethod
 @jit(nopython=True)
-def calc_ibd_statistics(genomes, ixs, rho, tau, theta, l_threshold=25):
+def calc_ibd_statistics(genomes, ixs, rho, tau, theta, l_threshold):
     """
     Calculate IBD (and IBS) statistics for every pair 
     of `genomes` that have been collected, taking note

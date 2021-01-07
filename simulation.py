@@ -178,18 +178,21 @@ print("")
 # STORAGE
 print("Preparing Simulation Data Storage...")
 track_ibd = config.getboolean('Sampling', 'track_ibd')
+l_threshold = 2 * bp_per_cM if track_ibd else None  # for 2cM detection threshold
 print("    Track IBD?", track_ibd)
+if track_ibd:
+    print("    IBD Length Threshold: 2cM = %dbp" % l_threshold)
 storage = DataCollection(prev_samp_freq=prev_samp_freq,
                          div_samp_freq=div_samp_freq,
                          max_samples=options['max_samples'],
                          detection_threshold=options['detection_threshold'],
-                         track_ibd=track_ibd)
+                         track_ibd=track_ibd, l_threshold=l_threshold)
 
 
 # DATA STRUCTURES
 h = np.zeros(params['nh'], dtype=np.int8)  # Host infection status
 v = np.zeros(params['nv'], dtype=np.int8)  # Vector infection status
-h_dt = {}  # host index: parasite_genomes
+h_dt = {}  # host index: parasite genomes
 v_dt = {}  # vector index: parasite genomes
 t_h = np.zeros(params['nh'])  # Host time-of-last-update
 t_v = np.zeros(params['nv'])  # Vector time-of-last-update
