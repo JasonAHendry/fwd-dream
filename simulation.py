@@ -202,7 +202,7 @@ print("")
 
 # SEED INFECTION
 # - Set t0 here depending on seed method
-n_seed = 10
+n_seed = 30
 h[:n_seed] = 1
 if seed_method == "unique":
     # Each individual has a unique parasite genome, generated randomly
