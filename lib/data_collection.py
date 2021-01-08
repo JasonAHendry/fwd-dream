@@ -244,8 +244,10 @@ class DataCollection(object):
             ks : ndarray, shape (nsamples)
                 Number of unique parasite genomes for each of the samples
                 that were sequenced.
-            genomes : ndarray, shape (nsnps, nnsamples)
+            genomes : ndarray, shape (nsnps, nsamples)
                 All parasite genomes collected.
+            ixs : ndarray, shape (nsamples)
+                Sample indices for each genome.
         """
 
         # Determine how many samples to collect
@@ -341,12 +343,11 @@ class DataCollection(object):
         Parameters
             ac : AlleleCountArray, shape (nsnps, nalleles)
                 Allele counts for each position in the genome.
-                
             pos : ndarray, int, shape (nsnps)
                 The position, as an integer, of each SNP
                 in the parasite genome.
         Returns
-            div_stats : dict
+            diversity_dt : dict
                 Dictionary of genetic diversity statistics.
         """
         _, n_allele_types = ac.shape
