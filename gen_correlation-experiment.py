@@ -68,12 +68,6 @@ for opt, value in opts:
         sys.exit(2)
 print("Done.")
 print("")
-        
-    
-# Create experiment directory
-expt_path = os.path.join("results", expt_name)
-if not os.path.isdir(expt_path):
-    os.mkdir(expt_path)
 
     
 # LOAD DEFAULT SIMULATION PARAMETERS
