@@ -64,9 +64,14 @@ for opt, value in opts:
     else:
         print("Parameter %s not recognized." % opt)
         sys.exit(2)
+        
+# Create experiment directory
 expt_path = os.path.join("results", expt_name)
-if not os.path.isdir(expt_path):
+try:
     os.mkdir(expt_path)
+except OSError as e:  # handle race issues
+    if e.errno != errno.EEXIST:
+        raise
 
 # Create an output directory for the simulation: sim_<sim_suffix>_<sim_id>
 while True:  # if running many parallel sims, race issues can arise in `out_path` assignment
