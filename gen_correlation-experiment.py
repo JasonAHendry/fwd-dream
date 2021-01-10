@@ -90,18 +90,41 @@ if run_sensitivity:
     sensitivity = {}
 
     # Extract parameters from config
-    demography = {param: [int(v) for v in val.strip().split(",")]
-                  for param, val in config.items('Demography')}
-    transmission = {param: [float(v) for v in val.strip().split(",")]
-                    for param, val in config.items('Transmission')}
-    evolution = {param: [float(v) for v in val.strip().split(",")]
-                 for param, val in config.items('Evolution')}
-
-    # Construct dictionary
-    sensitivity.update(demography)
-    sensitivity.update(transmission)
-    sensitivity.update(evolution)
+    try:
+        demography = {param: [int(v) for v in val.strip().split(",")]
+                      for param, val in config.items('Demography')}
+        sensitivity.update(demography)
+    except configparser.NoSectionError:
+        print("  No demographic parameters for sensitivity analysis.")
     
+    try:
+        genome = {param: [int(v) for v in val.strip().split(",")]
+                        for param, val in config.items('Genome')}
+        sensitivity.update(genome)
+    except configparser.NoSectionError:
+        print("  No genome parameters for sensitivity analysis.")
+       
+    
+    try:
+        transmission = {param: [float(v) for v in val.strip().split(",")]
+                        for param, val in config.items('Transmission')}
+        sensitivity.update(transmission)
+        
+    except configparser.NoSectionError:
+        print("  No transmission parameters for sensitivity analysis.")
+
+    try:
+        evolution = {param: [float(v) for v in val.strip().split(",")]
+                     for param, val in config.items('Evolution')}
+        sensitivity.update(evolution)
+    except configparser.NoSectionError:
+        print("  No evolution parameters for sensitivity analysis.")
+        
+    print("Parameters for sensitivity analysis")
+    print("{:<10s}\t{:<10s}".format("Parameter", "Values"))
+    for k, v in sensitivity.items():
+        print("{:<10s}\t{:<10s}".format(k, ", ".join([str(vv) for vv in v])))
+
     # Draw from uniform rv?
     draw_uniform = False
     print(" Draw from uniform distribution:", draw_uniform)
