@@ -227,7 +227,7 @@ class Epoch(object):
         self.name = section.split("_")[1]
         
         # Epoch time        
-        self.duration = config.get(section, "duration")
+        self.duration = eval(config.get(section, "duration"))  # evalute to parse 'None'
         self.t0 = None
         self.tdelta = None
         self.t1 = None
