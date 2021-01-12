@@ -245,6 +245,7 @@ t0 = 0  # stores the current time, in days
 gen = 0  # 'generations' of the simulation; one event (bite or clearance) occurs in each generation
 history = {"inf_h": 0, "superinf_h": 0, "clear_h": 0, 
            "inf_v": 0, "superinf_v": 0, "clear_v": 0}  # keep track of events that occur
+extinct = False  # switches to True if parasite popn goes extinct
 while t0 < max_t0:
 
     gen += 1  # possibly almost no longer necessary
@@ -438,8 +439,14 @@ while t0 < max_t0:
     clear_rate_v = params['eta']*v1
     # Overall rate of events of interest
     rates = np.concatenate([interesting_biting_events, [clear_rate_h, clear_rate_v]])
-    rates_total = rates.sum()  # -- will go to zero if extinction
+    rates_total = rates.sum()
     
+    if rates_total == 0:  # zero if extinction occurs
+        print("Parasite population has gone extinct at day %d." % t0)
+        print("Exiting...")
+        extinct = True
+        break
+        
     # Move forward in time to next event
     t0 += random.expovariate(rates_total)
     
@@ -650,7 +657,7 @@ runtime = str(datetime.timedelta(seconds=end_time - start_time))
 print("Run Diagnostics")
 print("  Peak memory usage: %dMb" % peak_memory_mb)
 print("  Total simulation run-time (HH:MM:SS): %s" % runtime)
-json.dump({"runtime": runtime, "peak_mem_mb": peak_memory_mb}, 
+json.dump({"runtime": runtime, "peak_mem_mb": peak_memory_mb, "extinct": extinct}, 
           open(os.path.join(out_path, "run_diagnostics.json"), "w"))
 print("")
 
