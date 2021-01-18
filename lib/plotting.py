@@ -16,7 +16,7 @@ def get_boxplot_bands(ax, ols, x, alpha=0.05):
     ols_line = lambda x: b + m * x
     
     npts = 100
-    x_ = np.linspace(0.0, 1.0, npts)  # full prevalence range
+    x_ = np.linspace(0, 1, npts)  # full prevalence range
     
     # convert to plotting x-axis values
     x_min, x_max = x.min(), x.max()
