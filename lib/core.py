@@ -69,9 +69,7 @@ def meiosis(quantum, nsnps, p_oocysts=0.5, bp_per_cM=20):
             
             if not (parentals[0] == parentals[1]).all(): # if identical, no need
                 # Create bivalent
-                bivalent = np.zeros((2, nsnps, 2))  # needs to hold mutations
-                bivalent[:, :, 0] = np.copy(parentals)
-                bivalent[:, :, 1] = np.copy(parentals)
+                bivalent = np.dstack([np.copy(parentals), np.copy(parentals)])
 
                 # Prepare crossover events
                 n_co = max([1, np.random.poisson(mean_n_co)])  # enforce at least 1 CO
@@ -143,9 +141,7 @@ def minimal_meiosis(quantum, nsnps, bp_per_cM=20):
         parentals = quantum[ii]
         if not (parentals[0] == parentals[1]).all():
             # Create bivalent
-            bivalent = np.zeros((2, nsnps, 2), dtype='int8')
-            bivalent[:, :, 0] = np.copy(parentals)
-            bivalent[:, :, 1] = np.copy(parentals)
+            bivalent = np.dstack([np.copy(parentals), np.copy(parentals)])
             # Prepare crossover events
             n_co = np.max([1, np.random.poisson(mean_n_co)])  # enforce at least 1 CO
             co_brks = np.random.choice(nsnps, n_co)
@@ -168,7 +164,8 @@ def minimal_meiosis(quantum, nsnps, bp_per_cM=20):
 
 
 @jit(nopython=True)
-def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, nsnps=0):
+def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, 
+                nsnps=0, binary_genomes=False):
     """
     Evolve parasite genomes of a host `hh` forward `ti` days
     according to a Moran process parameterised by a `drift_rate` 
@@ -200,13 +197,18 @@ def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, nsnps=0):
             j = int(random.random() * nh)
             hh[j] = hh[i]  # drift
             if random.random() < theta * nsnps:  # mutation
-                hh[j, int(random.random() * nsnps)] = random.random()
+                k = int(random.random() * nsnps)  # site to mutate
+                if binary_genomes:
+                    hh[j, k] = 1 - hh[j, k]
+                else:
+                    hh[j, k] = random.random()
         
     return hh
 
 
 @jit(nopython=True)
-def evolve_vector(vv, ti, theta=0.0, drift_rate=0.0, nsnps=0):
+def evolve_vector(vv, ti, theta=0.0, drift_rate=0.0, 
+                  nsnps=0, binary_genomes=False):
     """
     Evolve parasite genomes of a vector `vv` forward `ti` days
     according to a Moran process parameterised by a `drift_rate` 
@@ -237,30 +239,36 @@ def evolve_vector(vv, ti, theta=0.0, drift_rate=0.0, nsnps=0):
             j = int(random.random() * nv)
             vv[j] = vv[i]  # drift
             if random.random() < theta * nsnps:  # mutation
-                vv[j, int(random.random() * nsnps)] = random.random()
+                k = int(random.random() * nsnps)  # site to mutate
+                if binary_genomes:
+                    vv[j, k] = 1 - vv[j, k]
+                else:
+                    vv[j, k] = random.random()
         
     return vv
 
 
-def evolve_all_hosts(h_dt, tis, drift_rate=0.0, theta=0.0, nsnps=0):
+def evolve_all_hosts(h_dt, tis, drift_rate=0.0, theta=0.0, nsnps=0, binary_genomes=False):
     """
     Run `evolve_host()` on every infected host in `h_dt()`
     
     See `evolve_host` for details.
     
     """
-    return {ix: evolve_host(hh=genomes, ti=tis[ix], drift_rate=drift_rate, theta=theta, nsnps=nsnps)
+    return {ix: evolve_host(hh=genomes, ti=tis[ix], drift_rate=drift_rate, theta=theta, 
+                            nsnps=nsnps, binary_genomes=binary_genomes)
             for ix, genomes in h_dt.items()}
     
     
-def evolve_all_vectors(v_dt, tis, drift_rate=0.0, theta=0.0, nsnps=0):
+def evolve_all_vectors(v_dt, tis, drift_rate=0.0, theta=0.0, nsnps=0, binary_genomes=False):
     """
     Run `evolve_vector()` on every infected vector in `v_dt()`s
     
     See `evolve_vector` for details.
     
     """
-    return {ix: evolve_vector(vv=genomes, ti=tis[ix], drift_rate=drift_rate, theta=theta, nsnps=nsnps)
+    return {ix: evolve_vector(vv=genomes, ti=tis[ix], drift_rate=drift_rate, theta=theta, 
+                              nsnps=nsnps, binary_genomes=binary_genomes)
             for ix, genomes in v_dt.items()}
 
 

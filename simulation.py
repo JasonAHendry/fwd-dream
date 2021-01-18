@@ -126,6 +126,8 @@ bp_per_cM = 2 * params["nsnps"] / 100  # scaled for 1 CO per bivalent
 
 # Options
 options = {}
+options['n_seed'] = eval(config.get('Options', 'n_seed'))
+options['binary_genomes'] = eval(config.get('Options', 'binary_genomes'))
 options['init_duration'] = eval(config.get('Options', 'init_duration'))
 options['max_samples'] = eval(config.get('Options', 'max_samples'))
 options['detection_threshold'] = eval(config.get('Options', 'detection_threshold'))
@@ -156,6 +158,7 @@ print("  Expected Vector Prevalence:", x_v)
 print("  R0:", R0)
 print("    Limit number of samples collected to:", options['max_samples'])
 print("    Set the detection threshold for mixed infections to:", options['detection_threshold'])
+print("    Parasite genomes binary?:", options['binary_genomes'])
 
 
 # SAMPLING
@@ -206,21 +209,19 @@ print("")
 
 
 # SEED INFECTION
-# - Set t0 here depending on seed method
-n_seed = 30
+print("Seeding simulation...")
+n_seed = options['n_seed']
 h[:n_seed] = 1
-if seed_method == "unique":
-    # Each individual has a unique parasite genome, generated randomly
-    h_dt.update({i : np.random.uniform(0, 1, size=(params["nph"], params["nsnps"])) for i in range(n_seed)})
-elif seed_method == "clonal":
-    # All individuals begin with the same genome
-    h_dt.update({i : np.zeros((params["nph"], params["nsnps"])) for i in range(n_seed)})
-else:
-    raise Exception("'seed_method' not recognised. Choose from 'unique' or 'clonal'.")
+# Define data type of parasite genomes, and create clonally infected hosts
+genome_dtype = np.int8 if options['binary_genomes'] else np.float32    
+h_dt.update({i : np.zeros((params["nph"], params["nsnps"]), dtype=genome_dtype) 
+             for i in range(n_seed)})
+# Initial infection count    
 h1 = np.sum(h == 1)
 v1 = np.sum(v == 1)
-print("Seeding simulation with %d infected humans" % h1)
-print("...and %d infected vectors." % v1)
+print("  ...with %d infected humans" % h1)
+print("  ...and %d infected vectors." % v1)
+print("  Parasite genome data type: %s" % h_dt[0].dtype)
 print("Done.")
 print("")
 
@@ -305,7 +306,7 @@ while t0 < max_t0:
                 # Bring host parasite population to present before collecting samples
                 h_dt = evolve_all_hosts(h_dt=h_dt, tis=t0-t_h, 
                                        drift_rate=params['drift_rate_h'], theta=params['theta_h'],
-                                       nsnps=params['nsnps'])
+                                       nsnps=params['nsnps'], binary_genomes=options['binary_genomes'])
                 t_h[:] = t0
 
                 # Make an Epoch Directory
@@ -379,7 +380,7 @@ while t0 < max_t0:
         # Evolve hosts to sampling time
         h_dt = evolve_all_hosts(h_dt=h_dt, tis=t0-t_h, 
                                 drift_rate=params['drift_rate_h'], theta=params['theta_h'],
-                                nsnps=params['nsnps'])
+                                nsnps=params['nsnps'], binary_genomes=options['binary_genomes'])
         t_h[:] = t0
 
         # Sample genetics
@@ -398,6 +399,9 @@ while t0 < max_t0:
                  nHm, nVm,
                  time.time() - trep))
         trep = time.time()
+        
+        # TESTING DTYPE
+        print("H dtype: %s" % list(h_dt.values())[0].dtype)
         
     """
     Moving forward in time
@@ -461,7 +465,7 @@ while t0 < max_t0:
         # Evolve (h)          
         h_dt[idh] = evolve_host(hh=h_dt[idh], ti=t0-t_h[idh],
                                 drift_rate=params['drift_rate_h'], theta=params['theta_h'],
-                                nsnps=params['nsnps'])
+                                nsnps=params['nsnps'], binary_genomes=options['binary_genomes'])
         t_h[idh] = t0
         
         # Transfer (h -> v)
@@ -483,7 +487,7 @@ while t0 < max_t0:
         # Evolve (v)       
         v_dt[idv] = evolve_vector(vv=v_dt[idv], ti=t0-t_v[idv],
                                   drift_rate=params['drift_rate_v'], theta=params['theta_v'],
-                                  nsnps=params['nsnps'])
+                                  nsnps=params['nsnps'], binary_genomes=options['binary_genomes'])
         t_v[idv] = t0
         
         # Transfer (v -> h)        
@@ -501,11 +505,11 @@ while t0 < max_t0:
         # Evolve (h, v)          
         h_dt[idh] = evolve_host(hh=h_dt[idh], ti=t0-t_h[idh],
                                 drift_rate=params['drift_rate_h'], theta=params['theta_h'],
-                                nsnps=params['nsnps'])
+                                nsnps=params['nsnps'], binary_genomes=options['binary_genomes'])
         t_h[idh] = t0
         v_dt[idv] = evolve_vector(vv=v_dt[idv], ti=t0-t_v[idv],
                                   drift_rate=params['drift_rate_v'], theta=params['theta_v'],
-                                  nsnps=params['nsnps'])
+                                  nsnps=params['nsnps'], binary_genomes=options['binary_genomes'])
         t_v[idv] = t0
         
         # Transfer (h -> v)
@@ -525,11 +529,11 @@ while t0 < max_t0:
         # Evolve (h, v)          
         h_dt[idh] = evolve_host(hh=h_dt[idh], ti=t0-t_h[idh],
                                drift_rate=params['drift_rate_h'], theta=params['theta_h'],
-                               nsnps=params['nsnps'])
+                               nsnps=params['nsnps'], binary_genomes=options['binary_genomes'])
         t_h[idh] = t0
         v_dt[idv] = evolve_vector(vv=v_dt[idv], ti=t0-t_v[idv],
                                   drift_rate=params['drift_rate_v'], theta=params['theta_v'],
-                                  nsnps=params['nsnps'])
+                                  nsnps=params['nsnps'], binary_genomes=options['binary_genomes'])
         t_v[idv] = t0
         
         # Transfer (v -> h)        
@@ -546,11 +550,11 @@ while t0 < max_t0:
         # Evolve (h, v)          
         h_dt[idh] = evolve_host(hh=h_dt[idh], ti=t0-t_h[idh],
                                 drift_rate=params['drift_rate_h'], theta=params['theta_h'],
-                                nsnps=params['nsnps'])
+                                nsnps=params['nsnps'], binary_genomes=options['binary_genomes'])
         t_h[idh] = t0
         v_dt[idv] = evolve_vector(vv=v_dt[idv], ti=t0-t_v[idv],
                                   drift_rate=params['drift_rate_v'], theta=params['theta_v'],
-                                  nsnps=params['nsnps'])
+                                  nsnps=params['nsnps'], binary_genomes=options['binary_genomes'])
         t_v[idv] = t0
         
         # Transfer (v -> h, h->v)
@@ -594,7 +598,7 @@ print("")
 print("Evolving all host parasites to the present (day %.0f) ..." % t0)
 h_dt = evolve_all_hosts(h_dt=h_dt, tis=t0-t_h, 
                        drift_rate=params['drift_rate_h'], theta=params['theta_h'],
-                       nsnps=params['nsnps'])
+                       nsnps=params['nsnps'], binary_genomes=options['binary_genomes'])
 t_h[:] = t0   
 print("Done.")
 print("")
