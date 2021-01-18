@@ -16,7 +16,7 @@ def get_boxplot_bands(ax, ols, x, alpha=0.05):
     ols_line = lambda x: b + m * x
     
     npts = 100
-    x_ = np.linspace(0.0, 1.0, npts)  # full prevalence range
+    x_ = np.linspace(0, 1, npts)  # full prevalence range
     
     # convert to plotting x-axis values
     x_min, x_max = x.min(), x.max()
@@ -68,7 +68,7 @@ def regress_boxplot(metric, x_h, df, ax, palette):
     ax.set_xlim(xlims)
     # Legend
     ax.annotate(xy=(0.05, 0.85), xycoords='axes fraction',
-                s="$ r^2 = $ %.02f" % ols.rsquared, fontsize=10,
+                text="$ r^2 = $ %.02f" % ols.rsquared, fontsize=10,
                 bbox=dict(facecolor='white', edgecolor='grey'), zorder=5)
 
     return None
@@ -97,7 +97,7 @@ def regress_violinplot(metric, x_h, df, ax, palette):
     ax.set_xlim(xlims)
     # Legend
     ax.annotate(xy=(0.05, 0.85), xycoords='axes fraction',
-                s="$ r^2 = $ %.02f" % ols.rsquared, fontsize=10,
+                text="$ r^2 = $ %.02f" % ols.rsquared, fontsize=10,
                 bbox=dict(facecolor='white', edgecolor='grey'), zorder=5)
 
     return None
@@ -125,7 +125,7 @@ def regress_scatterplot(metric, x_h, ot, ax, color, **kwargs):
     ax.set_xlim(xlims)
     # Legend
     ax.annotate(xy=(0.05, 0.875), xycoords='axes fraction',
-                s="$ r^2 = $ %.02f" % ols.rsquared, fontsize=10,
+                text="$ r^2 = $ %.02f" % ols.rsquared, fontsize=10,
                 bbox=dict(facecolor='white', edgecolor='grey'), zorder=5)
 
 

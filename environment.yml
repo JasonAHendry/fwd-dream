@@ -9,3 +9,5 @@ dependencies:
   - jupyter
   - scipy=1.4
   - seaborn
+  - pytest
+  - numba

@@ -1,7 +1,10 @@
+import random
 import numpy as np
+import itertools
 import allel
 import scipy.stats
 import configparser
+from numba import jit
 
 
 # ================================================================= #
@@ -43,10 +46,7 @@ def sequence_dna(hh, detection_threshold=None):
     and `seqs`, the sequences themselves
 
     Note that identical repeated parasite genomes are
-    reported only once by `sequence_dna()` and that the
-    parasite genomes, which are implemented as
-    (ref=1, alt=2) in the simulation, are returned
-    with ref=0, alt=1 from `sequence_dna()`.
+    reported only once by `sequence_dna()`
 
     Parameters
         hh: ndarray, shape (nph, nsnps)
@@ -63,21 +63,21 @@ def sequence_dna(hh, detection_threshold=None):
         seqs: ndarray, shape(k, nsnps)
             Sequenced parasite genomes.
     """
-    seqs = np.vstack(list({tuple(row) for row in hh})) - 1
+    nsnps = hh.shape[1]
+    seqs = np.vstack(list({tuple(row) for row in hh}))
     k = seqs.shape[0]
-    if detection_threshold is not None:  # now we check for enough differences
-        n_snps = float(seqs.shape[1])
+    if k > 1 and detection_threshold is not None:  # now we check for enough differences
         keep_indxs = [0]
         for j in np.arange(1, k):
-            n_diffs = (seqs[keep_indxs, :] != seqs[j]).sum(1)
-            if (n_diffs / n_snps >= detection_threshold).all():
+            ndiffs = (seqs[keep_indxs, :] != seqs[j]).sum(1)
+            if (ndiffs / nsnps >= detection_threshold).all():
                 keep_indxs.append(j)
         seqs = seqs[keep_indxs]
         k = seqs.shape[0]
     return k, seqs
 
 
-def collect_genomes(h, h_a, max_samples=None, detection_threshold=None, verbose=False):
+def collect_genomes(h_dt, max_samples=None, detection_threshold=None, verbose=False):
     """
     Collect parasite genomes from a population of infected
     human beings
@@ -102,35 +102,61 @@ def collect_genomes(h, h_a, max_samples=None, detection_threshold=None, verbose=
         genomes: ndarray, shape (nsnps, samples)
             All parasite genomes collected.
     """
+    
+    # Determine how many samples to collect
+    n_infected = len(h_dt.keys())
+    if max_samples is None or max_samples >= n_infected:
+        n_collect = n_infected
+    else:
+        n_collect = max_samples
+    
+    # Collect and sequence DNA of samples
+    ixs = []
     ks = []
     gs = []
-
-    h_inf = np.where(h == 1)[0]  # extract positions from tuple
-    if max_samples is not None:
-        if len(h_inf) < max_samples:
-            if verbose:
-                print("Not enough infected individuals to collect %d samples." % max_samples)
-                print("Collecting %d instead" % len(h_inf))
-            max_samples = len(h_inf)
-    else:  # if max_samples is None, we sample all infected hosts
-        max_samples = len(h_inf)
-        if verbose:
-            print("Sampling entire population of %d hosts." % max_samples)
-
-    h_collect = h_a[np.random.choice(h_inf, max_samples, replace=False)]
-    for hh in h_collect:
-        k, g = sequence_dna(hh, detection_threshold)
+    for idc in random.sample(h_dt.keys(), k=n_collect):
+        k, g = sequence_dna(hh=h_dt[idc], detection_threshold=detection_threshold)
         ks.append(k)
         gs.append(g)
+        ixs.extend([idc]*k)  # sample indices for each genome collected
+
+    # Convert to numpy arrays
     genomes = np.vstack(gs).T  # transpose so rows=snps
     ks = np.array(ks)
+    ixs = np.array(ixs)
+    
     return ks, genomes
+
+
+def get_allele_counts(genomes):
+    """
+    Generate an allele count array
+    for a collection of genomes
+    
+    Parameters
+        genomes: ndarray, shape (nsnps, n_genomes)
+            Array encoding a set of sequenced parasite
+            genomes.
+    
+    Returns:
+        ac: AlleleCountArray, shape (nsnps, n_alleles)
+            Allele counts for every loci in `genomes`.
+            
+    """
+    nsnps, ngenomes = genomes.shape
+    ac = np.zeros((nsnps, ngenomes), 'int16')  # the maximum possible size
+    for i in np.arange(nsnps):
+        counts = np.unique(genomes[i], return_counts=True)[1]
+        n = len(counts)
+        ac[i, :n] = counts
+    ac = ac[:, ac.sum(0) > 0]  # remove columns with no alleles
+    return allel.AlleleCountsArray(ac)
 
 
 def gen_allel_datastructs(genomes):
     """
-    Generate three scikit-allel data structures
-    (HaplotypeArray, AlleleCountArray, and a vector
+    Generate scikit-allel data structures
+    (genomes, AlleleCountArray, and a vector
     of SNP positions) from sequenced parasite genomes
 
     Parameters
@@ -139,8 +165,9 @@ def gen_allel_datastructs(genomes):
             genomes.
 
     Returns
-        hap: HaplotypeArray, shape (nsnps, n_genomes)
-            Array of allele indices for each parasite genome,
+        genomes: ndarray, shape (nsnps, n_genomes)
+            Array encoding a set of sequenced parasite
+            genomes. for each parasite genome,
             where ref=0 and alt=1.
         ac: AlleleCountArray, shape (nsnps, 2)
             Allele counts computed from `hap`.
@@ -148,10 +175,10 @@ def gen_allel_datastructs(genomes):
             The position, as an integer, of each SNP
             in the parasite genome.
     """
-    hap = allel.HaplotypeArray(genomes)
-    ac = hap.count_alleles()
-    pos = np.arange(genomes.shape[0]) + 1
-    return hap, pos, ac
+    # hap = allel.HaplotypeArray(genomes), no longer possible
+    ac = get_allele_counts(genomes)
+    pos = np.arange(1, genomes.shape[0] + 1)
+    return genomes, pos, ac
 
 
 def calc_k_stats(ks, verbose=False):
@@ -196,7 +223,7 @@ def calc_k_stats(ks, verbose=False):
     return k_stats
 
 
-def get_barcodes(hap, verbose=False):
+def get_barcodes(genomes, verbose=False):
     """
     Get `barcodes` (=unique genomes/haplotypes)
     from the parasite haplotype array
@@ -206,16 +233,15 @@ def get_barcodes(hap, verbose=False):
     on SNP barcodes to track malaria prevalence changes.
 
     Parameters
-        hap: HaplotypeArray, shape (nsnps, n_genomes)
-            Array of allele indices for each parasite genome,
-            where ref=0 and alt=1.
-        verbose: bool
+        genomes: ndarray, shape (nsnps, n_genomes)
+            Array encoding a set of sequenced parasite
+            genomes.
     Returns
         barcode_counts: ndarray, shape (n_unique_genomes)
             Returns the counts for each unique genome in the
             population.
     """
-    barcode_counts = hap.distinct_counts()
+    barcode_counts = np.unique(genomes, axis=1, return_counts=True)[1]
     n_barcodes = len(barcode_counts)
     if verbose:
         print("Senegal Statistics")
@@ -249,13 +275,12 @@ def calc_diversity_stats(pos, ac, verbose=False):
     if n_allele_types == 1:  # population clonal, f(x)'s would fail
         n_segregating = 0
         n_singletons = 0
-        statement = "  All genomes are identical!"
+        statement = "  Sample is clonal."
     else:
         n_segregating = ac.count_segregating()
-        n_singletons = ac.count_singleton(1)
-        statement = "  Unique genomes present."
+        n_singletons = (ac == 1).any(1).sum()
+        statement = "  Sample is not clonal."
 
-    n_variants = ac.count_variant()
     pi = allel.stats.diversity.sequence_diversity(pos, ac)
     theta = allel.stats.diversity.watterson_theta(pos, ac)
     tajd = allel.stats.diversity.tajima_d(ac)  # <4 samples, throws warning (NOT exception)
@@ -263,15 +288,13 @@ def calc_diversity_stats(pos, ac, verbose=False):
     if verbose:
         print("Diversity Metrics")
         print(statement)
-        print("  No. Variant Sites:", n_variants)
         print("  No. Segregating Sites:", n_segregating)
         print("  No. Singletons:", n_singletons)
         print("  Nucleotide Diversity (pi):", pi)
         print("  Watterson's Theta:", theta)
         print("  Tajima's D:", tajd)
 
-    div_stats = {"n_variants": n_variants,
-                 "n_segregating": n_segregating,
+    div_stats = {"n_segregating": n_segregating,
                  "n_singletons": n_singletons,
                  "pi": pi,
                  "theta": theta,
@@ -282,9 +305,17 @@ def calc_diversity_stats(pos, ac, verbose=False):
 
 def get_ibd_segments(ibd):
     """
-    Return an array of IBD segment lengths,
-    given `ibd` a track that annotates whether
-    two genomes are IBD or not for each position
+    Given a boolean vector specifying whether
+    each SNP position carries the same allele,
+    return an array of identity track lengths
+    
+    Parameters
+        ibd: ndarray, dtype bool, shape (nsnps)
+            For each position in the genome, are
+            the alleles identical?
+    Returns
+        segs: ndarray, dtype int, shape(n_segs)
+            Return the length of IBD segments.
     """
     ll = []
     l = 0
@@ -295,37 +326,175 @@ def get_ibd_segments(ibd):
             ll.append(l)
             l = 0
     ll.append(l)  # append last segment
+    segs = np.array(ll)  # always positive, won't be >65K SNPs
 
-    return np.array([l for l in ll if l > 0])
+    return segs[segs > 0]  # only return if positive length
 
 
-def calc_ibd_statistics(genomes, nsnps):
+@jit(nopython=True)
+def get_ibd_segments_hmm(ibs, rho):
     """
-    Return three IBD statistics,
-    i. The fraction IBD
-    ii. The mean IBD segement length
-    iii. The number of IBD segements
-    for every pair in a set of genomes
+    Given an IBS profile for two parasite genomes,
+    return a set of IBD tracks calculated using
+    a simple hidden Markov Model
+    
+    Parameters
+        ibs_state: ndarray, bool, shape (nsnps)
+            For each position in the genome report,
+            True if both parasite genomes carry the
+            same allele.
+        rho: float
+            The recombination rate between sites.
+            Assumed uniform across the genome.
+        theta: float
+            The coalescent mutation rate; classically
+            equal to twice the product of the effective 
+            population size and mutation rate.
+        tau: float
+            Indicates the time point after which all
+            alleles are considered unique; two alleles
+            are in IBD if they are copies of the same
+            ancestral allele that existed before `tau`,
+            i.e. MRCA existed before `tau`.
+    
+    Returns
+        ibd_segments: list containing length of IBD tracks
     """
+    
+    # Parameters
+    nsnps = ibs.shape[0]
+    
+    # Prepare emission probabilities `e`
+    # Can include formal expressions for this later
+    emiss = np.array([[0.8, 0.2],  # not IBD
+                      [0.1, 0.9]]) # IBD
+    
+    # Prepare data structures
+    vt = emiss[ibs[0]]  # initialise
+    tb = np.zeros((2, nsnps), np.int8)
+    tb[1, 1:] = 1
+    wmx = vt.argmax()
+    vt /= vt[wmx]
+    vtn = vt * (1 - rho)
+    
+    # Iterate
+    for j in range(1, nsnps):
+        for i in range(2):
+            if vt[i] * (1 - rho) < rho:
+                vtn[i] = rho
+                tb[i, j] = wmx
+            else:
+                vtn[i] = vt[i] * (1 - rho)
+            vtn[i] *= emiss[ibs[j], i]
+        wmx = vtn.argmax()
+        vt = vtn / vtn[wmx]
+    
+    # Traceback to produce IBD segment list
+    state = vt.argmax()
+    l = state
+    ibd_segs = []
+    for j in range(2, nsnps):
+        state = tb[state, nsnps-j]
+        if state:
+            l += 1
+        elif l > 0:
+            ibd_segs.append(l)
+            l = 0
+    if l > 0: ibd_segs.append(l)  # append last segment
+    
+    return np.array(ibd_segs)
 
-    n_genomes = genomes.shape[1]
-    n_pairs = int(n_genomes * (n_genomes - 1) / 2)
-    frac_ibd = np.zeros(n_pairs)
-    n_ibd = np.zeros(n_pairs)
+
+def calc_ibd_statistics(genomes):
+    """
+    Calculate IBD statistics using a
+    simple hidden Markov Model
+    
+    """
+    
+    nsnps, ngenomes = genomes.shape
+    
+    # Prepare storage
+    n_pairs = int(ngenomes * (ngenomes - 1) / 2)
+    f_ibd = np.zeros(n_pairs)
     l_ibd = np.zeros(n_pairs)
+    n_ibd = np.zeros(n_pairs)
+    
+    # Loop over all possible pairs of genomes
+    pairs = itertools.combinations(range(ngenomes), 2)
+    for ix, (i, j) in enumerate(pairs):
+        
+        # Compute IBD segements from IBS using simple HMM
+        ibs = (genomes[:, i] == genomes[:, j]).astype(np.int8)
+        ibd_segments = get_ibd_segments_hmm(ibs, rho=0.1)
+        
+        # Compute IBD summary statistics
+        f_ibd[ix] = ibd_segments.sum()
+        n_ibd[ix] = ibd_segments.shape[0]
+        l_ibd[ix] = ibd_segments.mean()
+        
+    f_ibd /= nsnps
+    
+    return f_ibd, n_ibd, l_ibd
 
-    ix = 0
-    for i in np.arange(n_genomes - 1):
-        for j in np.arange(i + 1, n_genomes):
-            ibd_state = genomes[:, i] == genomes[:, j]
-            ibd_segments = get_ibd_segments(ibd_state)
-            frac_ibd[ix] = ibd_state.sum() / float(nsnps)
-            n_ibd[ix] = len(ibd_segments)
-            l_ibd[ix] = ibd_segments.mean()
 
-            ix += 1
+def calc_ibd_statistics_old(genomes):
+    """
+    For every pair of genomes collected, return
+    three IBD summary statistics: 
+     - IBD fraction
+     - Mean IBD track length
+     - Number of IBD segments
 
-    return frac_ibd, n_ibd, l_ibd
+    Here, identity-by-descent (IBD) is approximated 
+    with identity-by-state (IBS). However, in an 
+    infinite-alleles model, IBS only occurs through
+    IBD as the same allele is never generated twice.
+    Thus if two samples carry the same allele,
+    it is through common inheritance.
+    
+    
+    Parameters
+        genomes: ndarray, shape (nsnps, ngenomes)
+            Array encoding a set of sequenced parasite
+            genomes.
+    
+    Returns
+        f_ibd: ndarray, float, shape (n_pairs)
+            Fraction IBD between every possible pair
+            of genomes. Length is the number of
+            pairs, i.e. n choose 2.
+        n_ibd: ndarray, int, shape (n_pairs)
+            Number of IBD segments between every
+            possible pair of genomes.
+        l_ibd: ndarray, float, shape (n_pairs)
+            Mean length of IBD segments between
+            every possible pair of genomes.
+    """
+    nsnps, ngenomes = genomes.shape
+    
+    # Prepare storage
+    n_pairs = int(ngenomes * (ngenomes - 1) / 2)
+    f_ibd = np.zeros(n_pairs)
+    l_ibd = np.zeros(n_pairs)
+    n_ibd = np.zeros(n_pairs)
+    
+    # Loop over all pairs of genomes
+    pairs = itertools.combinations(range(ngenomes), 2)
+    for ix, (i, j) in enumerate(pairs):
+        
+        # Compute IBD state and segments
+        ibd_state = genomes[:, i] == genomes[:, j]
+        ibd_segments = get_ibd_segments(ibd_state)
+        
+        # Compute IBD summary statistics
+        f_ibd[ix] = ibd_state.sum()
+        n_ibd[ix] = ibd_segments.shape[0]
+        l_ibd[ix] = ibd_segments.mean()
+        
+    f_ibd /= nsnps
+    
+    return f_ibd, n_ibd, l_ibd
 
 
 def calc_unfolded_sfs(ac, n, verbose=False):
@@ -490,7 +659,13 @@ def store_genetics(ks, hap, pos, ac,
     og.loc[div_samp_ct]['single_barcodes'] = (barcode_counts == 1).sum()
     # IBD
     if track_ibd:
-        frac_ibd, n_ibd, l_ibd = calc_ibd_statistics(hap, nsnps=nsnps)
+        frac_ibd, n_ibd, l_ibd = calc_ibd_statistics(hap)
+        
+        # NaNs can occur if there is no IBD, replace with zeros
+        frac_ibd[np.isnan(frac_ibd)] = 0
+        n_ibd[np.isnan(n_ibd)] = 0
+        l_ibd[np.isnan(l_ibd)] = 0
+        
         og.loc[div_samp_ct]['avg_frac_ibd'] = frac_ibd.mean()
         og.loc[div_samp_ct]['avg_n_ibd'] = n_ibd.mean()
         og.loc[div_samp_ct]['avg_l_ibd'] = l_ibd.mean()

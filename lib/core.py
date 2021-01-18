@@ -1,7 +1,9 @@
+import random
 import numpy as np
 import allel
 import scipy.stats
 import configparser
+from numba import jit
 
 
 # ================================================================= #
@@ -15,8 +17,7 @@ def meiosis(quantum, nsnps, p_oocysts=0.5, bp_per_cM=20):
     Run P.falciparum meiosis on the `quantum` of 
     strains that enter the vector, with...
     
-    - OPTIONALLY: Number of oocysts drawn from min[10, Geo(p_o)]
-    - or 1 oocyst
+    - Number of oocysts drawn from min[10, Geo(p_o)]
     - Random pairings from `quantum` to produce zygotes
     - Number of cross-overs max[1, Poi(bp_per_cM)]
     - Random pairings from `bivalent` for cross-overs
@@ -55,10 +56,10 @@ def meiosis(quantum, nsnps, p_oocysts=0.5, bp_per_cM=20):
         mean_n_co = 2 * nsnps / (bp_per_cM * 100)
         
         # Draw no. oocysts
-        n_oocysts = np.min([np.random.geometric(p_oocysts), 10])
+        n_oocysts = min([np.random.geometric(p_oocysts), 10])
         
         # Pair strains to create zygotes, 1 per oocyst
-        i = np.random.choice(len(quantum), n_oocysts*2)
+        i = random.choices(range(len(quantum)), k=n_oocysts*2)
         zygotes = list(zip(i[:-1:2], i[1::2]))
         
         # Run meiosis for each zygote
@@ -68,15 +69,15 @@ def meiosis(quantum, nsnps, p_oocysts=0.5, bp_per_cM=20):
             
             if not (parentals[0] == parentals[1]).all(): # if identical, no need
                 # Create bivalent
-                bivalent = np.zeros((2, nsnps, 2), dtype='int8')
+                bivalent = np.zeros((2, nsnps, 2))  # needs to hold mutations
                 bivalent[:, :, 0] = np.copy(parentals)
                 bivalent[:, :, 1] = np.copy(parentals)
 
                 # Prepare crossover events
-                n_co = np.max([1, np.random.poisson(mean_n_co)])  # enforce at least 1 CO
-                co_brks = np.random.choice(nsnps, n_co)
+                n_co = max([1, np.random.poisson(mean_n_co)])  # enforce at least 1 CO
+                co_brks = random.choices(range(nsnps), k=n_co)
                 co_brks.sort()
-                i = np.random.choice(2, n_co*2)
+                i = random.choices(range(2), k=n_co*2)
                 co_pairs = list(zip(i[:-1:2], i[1::2]))
 
                 # Resolve crossovers
@@ -166,131 +167,101 @@ def minimal_meiosis(quantum, nsnps, bp_per_cM=20):
 # ================================================================= #
 
 
-def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, nsnps=0, back_mutation=False):
+@jit(nopython=True)
+def evolve_host(hh, ti, theta=0.0, drift_rate=0.0, nsnps=0):
     """
-    Evolve the parasite genomes of a host forward `ti` days,
-    simulating drift and mutation, and optionally
-    allowing for back mutation
-    
-    Implements a continuous-time Moran model with
-    mutation
+    Evolve parasite genomes of a host `hh` forward `ti` days
+    according to a Moran process parameterised by a `drift_rate` 
+    and mutation rate `theta`
 
     Parameters
-        hh: ndarray, shape (npv, nsnps)
-            Array containing parasite genomes for single host.
-        ti: float|
-            Amount of time to simulate forward, measured in days.
-            I.e. difference between present time and last update.
+        hh: ndarray, float, shape (nph, nsnps)
+            Array containing parasite genomes from single host.
+        ti: float
+            Amount of time to simulate forward in days.
         theta: float
             Mutation probability per base per drift event.
         drift_rate: float
             Expected number of drift events per day.
         nsnps: int
             Number of SNPs per parasite genome.
-        back_mutation: bool
-            Allow for back mutation?
     Returns
-        hh: ndarray, shape (npv, nsnps)
-            Array containing parasite genomes for a single genome,
+        hh: ndarray, float, shape (nph, nsnps)
+            Array containing parasite genomes of the host,
             after evolving.
     """
     
-    nreps = np.random.poisson(ti * drift_rate)  # number of reproductions
-    if nreps > 0:
-        # Prepare
-        s = np.random.choice(len(hh), size=(nreps, 2))  # strains 
-        m = np.random.uniform(size=nreps) < theta * nsnps  # mutations
-        m_ix = np.random.choice(nsnps, m.sum())  # mutation sites
-        # Sequentially run through events
-        j = 0
-        for i in np.arange(nreps):
-            if m[i]:  # mutation
-                if back_mutation:
-                    hh[s[i, 0], m_ix[j]] = 3 - hh[s[i, 0], m_ix[j]]
-                else:
-                    hh[s[i, 0], m_ix[j]] = 2
-                j += 1
-            else:  # drift
-                hh[s[i, 1]] = hh[s[i, 0]]
+    nh = len(hh)
+    nreps = np.random.poisson(ti * drift_rate)
     
+    if nreps > 0:
+        for _ in range(nreps):
+            i = int(random.random() * nh)
+            j = int(random.random() * nh)
+            hh[j] = hh[i]  # drift
+            if random.random() < theta * nsnps:  # mutation
+                hh[j, int(random.random() * nsnps)] = random.random()
+        
     return hh
 
 
-def evolve_vector(vv, ti, theta=0.0, drift_rate=0.0, nsnps=0, back_mutation=False):
+@jit(nopython=True)
+def evolve_vector(vv, ti, theta=0.0, drift_rate=0.0, nsnps=0):
     """
-    Evolve the parasite genomes of a vector forward `ti` days,
-    simulating drift and mutation, and optionally
-    allowing for back mutation
+    Evolve parasite genomes of a vector `vv` forward `ti` days
+    according to a Moran process parameterised by a `drift_rate` 
+    and mutation rate `theta`
 
     Parameters
-        vv: ndarray, shape (npv, nsnps)
-            Array containing parasite genomes for single vector.
+        vv: ndarray, float, shape (nph, nsnps)
+            Array containing parasite genomes from single vector.
         ti: float
-            Amount of time to simulate forward, measured in days.
-            I.e. difference between present time and last update.
+            Amount of time to simulate forward in days.
         theta: float
             Mutation probability per base per drift event.
         drift_rate: float
             Expected number of drift events per day.
         nsnps: int
             Number of SNPs per parasite genome.
-        back_mutation: bool
-            Allow back mutation?
     Returns
-        vv: ndarray, shape (npv, nsnps)
-            Array containing parasite genomes for a single genome,
+        vv: ndarray, float, shape (nph, nsnps)
+            Array containing parasite genomes of the vector,
             after evolving.
     """
-
-    nreps = np.random.poisson(ti * drift_rate)  # number of reproductions
-    if nreps > 0:
-        # Prepare
-        s = np.random.choice(len(vv), size=(nreps, 2))  # strains 
-        m = np.random.uniform(size=nreps) < theta * nsnps  # mutations
-        m_ix = np.random.choice(nsnps, m.sum())  # mutation sites
-        # Sequentially run through events
-        j = 0
-        for i in np.arange(nreps):
-            if m[i]:  # mutation
-                if back_mutation:
-                    vv[s[i, 0], m_ix[j]] = 3 - vv[s[i, 0], m_ix[j]]
-                else:
-                    vv[s[i, 0], m_ix[j]] = 2
-                j += 1
-            else:  # drift
-                vv[s[i, 1]] = vv[s[i, 0]]
+    nv = len(vv)
+    nreps = np.random.poisson(ti * drift_rate)
     
+    if nreps > 0:
+        for _ in range(nreps):
+            i = int(random.random() * nv)
+            j = int(random.random() * nv)
+            vv[j] = vv[i]  # drift
+            if random.random() < theta * nsnps:  # mutation
+                vv[j, int(random.random() * nsnps)] = random.random()
+        
     return vv
 
 
-def evolve_all_hosts(h, h_a, tis, drift_rate=0.0, theta=0.0, nsnps=0, back_mutation=False):
+def evolve_all_hosts(h_dt, tis, drift_rate=0.0, theta=0.0, nsnps=0):
     """
-    Run `evolve_hosts()` on every infected host in `h_a`
+    Run `evolve_host()` on every infected host in `h_dt()`
     
-    See `evolve_hosts` for details.
-    
-    """
-    for idh in np.arange(h_a.shape[0]):
-        if h[idh] == 1:  # contains infection
-            h_a[idh] = evolve_host(hh=h_a[idh], ti=tis[idh],
-                       drift_rate=drift_rate, theta=theta,
-                       nsnps=nsnps, back_mutation=back_mutation)
-    return h_a
-    
-    
-def evolve_all_vectors(v, v_a, tis, drift_rate=0.0, theta=0.0, nsnps=0, back_mutation=False):
-    """
-    Run `evolve_vectors()` on every infected vector in `v_a`
-    
-    See `evolve_vectors` for details.
+    See `evolve_host` for details.
     
     """
-    for idv in np.arange(v_a.shape[0]):
-        if v[idv] == 1:  # contains infection
-            v_a[idv] = evolve_vector(vv=v_a[idv], ti=tis[idv],
-                       drift_rate=drift_rate, theta=theta,
-                       nsnps=nsnps, back_mutation=back_mutation)
-    return v_a
+    return {ix: evolve_host(hh=genomes, ti=tis[ix], drift_rate=drift_rate, theta=theta, nsnps=nsnps)
+            for ix, genomes in h_dt.items()}
+    
+    
+def evolve_all_vectors(v_dt, tis, drift_rate=0.0, theta=0.0, nsnps=0):
+    """
+    Run `evolve_vector()` on every infected vector in `v_dt()`s
+    
+    See `evolve_vector` for details.
+    
+    """
+    return {ix: evolve_vector(vv=genomes, ti=tis[ix], drift_rate=drift_rate, theta=theta, nsnps=nsnps)
+            for ix, genomes in v_dt.items()}
 
 
 # ================================================================= #
@@ -299,7 +270,7 @@ def evolve_all_vectors(v, v_a, tis, drift_rate=0.0, theta=0.0, nsnps=0, back_mut
 # ================================================================= #
 
 
-def infect_host(hh, vv, p_k=0.1):
+def infect_host(hh, vv, nph, p_k=0.1):
     """
     Infect a host with parasites from a vector
 
@@ -309,8 +280,10 @@ def infect_host(hh, vv, p_k=0.1):
 
 
     Parameters
-        hh: ndarray, shape (nph, nsnps)
-            Array containing parasite genomes for single host.
+        hh: None or ndarray, shape (nph, nsnps)
+            Either None, which indicates host is currently
+            uninfected, or an array containing parasite genomes 
+            for the host.
         vv: ndarray, shape (npv, nsnps)
             Array containing parasite genomes for single vector.
         p_k: float
@@ -327,21 +300,21 @@ def infect_host(hh, vv, p_k=0.1):
     k = np.max((1, np.random.binomial(len(vv), p_k)))  # number to transfer
     quantum = vv[np.random.choice(len(vv), k, replace=False)]  # which to transfer
 
-    if hh.sum() == 0:  # host is uninfected
+    if hh is None:  # host is uninfected
         rel_wts = np.zeros(k)
         rel_wts[:] = 1.0 / k
         pool = quantum
-    else:
+    else:  # superinfection
         rel_wts = np.zeros(k + len(hh))
         rel_wts[:k] = 0.5 / k
         rel_wts[k:] = 0.5 / len(hh)
         pool = np.concatenate((quantum, hh), axis=0)
 
-    new = pool[np.random.choice(len(pool), len(hh), replace=True, p=rel_wts)]
+    new = pool[np.random.choice(len(pool), nph, replace=True, p=rel_wts)]
     return new
 
 
-def infect_vector(hh, vv, nsnps, p_k=0.1, p_oocysts=0.5, bp_per_cM=20):
+def infect_vector(hh, vv, npv, nsnps, p_k=0.1, p_oocysts=0.5, bp_per_cM=20):
     """
     Infect a vector with parasites from a host,
     with parasites undergoing meiosis
@@ -379,17 +352,17 @@ def infect_vector(hh, vv, nsnps, p_k=0.1, p_oocysts=0.5, bp_per_cM=20):
     m = len(meiotic_progeny)
 
     # Establish new infection
-    if vv.sum() == 0:
+    if vv is None:  # vector is uninfected  
         rel_wts = np.zeros(m)
         rel_wts[:] = 1.0 / m
         pool = meiotic_progeny
-    else:
+    else:  # superinfection
         rel_wts = np.zeros(m + len(vv))
         rel_wts[:m] = 0.5 / m
         rel_wts[m:] = 0.5 / len(vv)
         pool = np.concatenate((meiotic_progeny, vv), axis=0)
 
-    new = pool[np.random.choice(len(pool), len(vv), replace=True, p=rel_wts)]
+    new = pool[np.random.choice(len(pool), npv, replace=True, p=rel_wts)]
     return new
 
 
