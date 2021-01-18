@@ -443,7 +443,7 @@ while t0 < max_t0:
     
     if rates_total == 0:  # zero if extinction occurs
         print("Parasite population has gone extinct at day %d." % t0)
-        print("Exiting...")
+        print("Aborting simulation...")
         extinct = True
         break
         
@@ -646,7 +646,7 @@ if h1 > 0:
         statement += " %d" if metric.startswith("n_") else " %.03f"
         print(statement % (genetic_names[metric], value))     
 else:
-    print("Human parasite population currently extinct!")
+    print("Host parasite population extinct!")
     print("... can't compute genetics.")
 print("")
 
@@ -655,6 +655,7 @@ peak_memory_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 10**6
 end_time = time.time()
 runtime = str(datetime.timedelta(seconds=end_time - start_time))
 print("Run Diagnostics")
+print("  Extinction occurred?: %s" % extinct)
 print("  Peak memory usage: %dMb" % peak_memory_mb)
 print("  Total simulation run-time (HH:MM:SS): %s" % runtime)
 json.dump({"runtime": runtime, "peak_mem_mb": peak_memory_mb, "extinct": extinct}, 
