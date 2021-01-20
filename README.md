@@ -14,6 +14,8 @@ conda activate dream
 
 ## Basic usage
 
+NB: Usage is being updated
+
 First, activate the conda environment:
 
 ```
@@ -23,7 +25,7 @@ conda activate dream
 Then, in the `/fwd-dream` directory, run:
 
 ```
-python simulation.py -e <expt_name> -p <params/param_set.ini> -s <balanced/random/seed_dir>
+python simulation.py -e <expt_name> -p <params/param_set.ini> -s <clonal>
 ```
 
 The `-e` flag specifies your experiment name, e.g. `-e high-transmission`.
@@ -36,11 +38,11 @@ The simulation will run printing diagnostics to `stdout` in your terminal. Outpu
 
 ### A small example
 
-I've included an example parameter set (`params/param_default-example.ini`) and notebook (`notebooks/sec0_plot-default-example.ipynb`) for you to get started with `forward-dream`. The parameters are set such that the simulation runs with default parameters, but for only 10 years, such that you can run the simulation in a few minutes on your local machine. To run it, navigate to the `/fwd-dream` directory and run:
+I've included an example parameter set (`params/param_default-example.ini`) and notebook (`notebooks/sec0_plot-default-example.ipynb`) for you to get started with `forward-dream`. The parameters are set such that the simulation runs with default parameters, but for only 10 years, such that you can run the simulation in a couple minutes on your local machine. To run it, navigate to the `/fwd-dream` directory and run:
 
 ```
 conda activate dream
-python simulation.py -e default -p params/param_default-example.ini -s balanced
+python simulation.py -e default -p params/param_default-example.ini -s clonal
 ```
 
 The simulation should now print some diagnostics to `stdout`. Once the simulation is done, you should be able to run the notebook `notebooks/sec0_plot-default-example.ipynb` to produce plots that recreate Figure 2 of the `forward-dream` manuscript:
@@ -89,34 +91,4 @@ Another application of forward-dream is to explore how genetic diversity statist
 3. Move to BMRC cluster.
 4. Run `/submit-simulation.sh`
   - Output: `results/2020-04-10_art-inv` will contain simulation outputs for 100 replicate intervention experiments.
-
-### Simulating migration from a source to a sink population (beta)
-I have incorporated a simple migration framework into `forward-dream` that allows the migration of infections from source population to a sink population. This was designed with the aim to explore genetic diversity statistics in the context of a region with unstable malaria transmission (i.e. R_0 < 1) that receives regular migration from a stable (R_0 > 1) source population. The workflow requires running forward-dream twice: (i) for the source population, and *saving* time-stamped genomes throughout and (ii) for the sink population, specifying the path to the source population simulation's output directory with the `-m` flag, and specifying a migration rate. Below I try to explain in more detail.
-
-1. Create *two* parameter set files, one for the source and one for the sink population.
-- I have created two examples:
-  - `params/param_migration-high-source.ini`
-  - `params/param_migration-high-sink.ini`
-- In the source population `.ini`, you should set `store_genomes=True` in the `[Sampling]` section.
-  - Genomes will be stored at a frequency specified by `div_samp_freq`
-- In the sink population `.ini`, you should set `migration_rate` flag in `[Options]` to your specified rate. Note that you can also initialize the simulation with `migration_rate=0`, and then introduce migration by adjusting the migration rate parameter in an `[Epoch_<name>]` section. I do the later in the example `.ini`.
-- The overall initialization (`init_duration`) and epoch durations should be equal for both the `source` and `sink` populations. This keeps the time stamping of the stored genomes aligned with time in the sink population.
-- The rate at which migration occurs in should be much less than the rate at which genomes are stored. i.e.:
-  - `migration_rate` in the sink `.ini` <<< than `div_samp_freq` in the source `.ini`
-  - Why? This helps ensure that every migration event samples a *unique* genome from the source population. If migration happens at too high a rate, you will artificially introduce IBD in the sink population by migrating over identical genomes from the source.
-2. Move the parameter files to BMRC cluster.
-2. Run `gen_submit.py -e 2020-05-06_migration-high-source -p params/param_migration-high-source.ini -s balanced -i 10`.
-- Input: `params/param_migration-high-source.ini`
-- Output: `submit_simulation.sh`
-  - This will run ten iterations of the source population, storing genomes in each. These can be used to feed infections into the sink populations.
-3. Run './submit_simulation.sh`
-- This submits the source simulations to the BMRC cluster.
-- Output: `results/2020-05-06_migration-high-source` will contain simulation outputs for 10 replicate source experiments.
-4. Run `gen_submit.py -e 2020-05-06_migration-high-sink -p params/param_migration-high-sink.ini -s balanced -m 2020-05-06_migration-high-sink`
-- Input: `params/param_migration-high-source.ini`
-- Output: `submit_simulation.sh`
-  - This will generate sink simulations for each of the ten source simulation.
-5. Run './submit_simulation.sh' to submit the simulations to Rescomp1.
-- Output: `results/2020-05-06_migration-high-source` will contain simulation outputs for 10 replicate sink experiments.
-
 
