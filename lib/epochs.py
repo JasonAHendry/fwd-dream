@@ -507,15 +507,21 @@ class Epochs(object):
     def __init__(self, params, config):
         
         # Parse
-        self.params = params
+        self.params = params.copy()  # Need to copy, as will change during simulation
         self.config = config
         
+        # Define initialisation variables
+        self.derived_params = calc_derived_params(self.params)
+        self.equil_params = calc_equil_params(self.params, self.derived_params)
+        self.init_x_h = calc_x_h(**self.equil_params)
+        self.init_x_v = calc_x_v(**self.equil_params)
+        
+        # Coordinate the Epochs
         self.init_duration = None
         self.epoch_sections = None
-        self.exist = None
-        self.max_t0 = None
-        
-        self.current = None
+        self.exist = None  # Are there any Epochs?
+        self.max_t0 = None  # What is the total runtime in days
+        self.current = None  # Points to the current epoch
 
         
     def set_initialisation(self, verbose=False):
@@ -532,10 +538,9 @@ class Epochs(object):
         if self.init_duration is None:
             if verbose:
                 print("Initialising simulation to approximate equilibrium.")
-            derived_params = calc_derived_params(self.params)
-            equil_params = calc_equil_params(self.params, derived_params)
-            x_h = calc_x_h(**equil_params)
-            time_to_equil = 2*x_h*self.params['nh']*(derived_params['h_v'] + derived_params['v_h']) 
+            ne = self.init_x_h*self.params['nh']
+            g = (self.derived_params['h_v'] + self.derived_params['v_h']) 
+            time_to_equil = 2*ne*g
             self.init_duration = time_to_equil
         else:
             if verbose:
@@ -628,17 +633,15 @@ class Epochs(object):
         
         if self.exist:
             print("Writing Epochs dataframe...")
-            
-            derived_params = calc_derived_params(self.params)
-            equil_params = calc_equil_params(self.params, derived_params)
+
             epoch_dt = {
                 "name": ["init"],
                 "t0": [0],
                 "t1": [self.init_duration],
                 "param": [""],
                 "val": [""],
-                "x_h": [calc_x_h(**equil_params)],
-                "x_v": [calc_x_v(**equil_params)]}
+                "x_h": [self.init_x_h],
+                "x_v": [self.init_x_v]}
             
             for epoch in self.epochs:
                 epoch_dt["name"].append(epoch.name)
