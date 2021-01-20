@@ -399,9 +399,7 @@ while t0 < max_t0:
                  nHm, nVm,
                  time.time() - trep))
         trep = time.time()
-        
-        # TESTING DTYPE
-        print("H dtype: %s" % list(h_dt.values())[0].dtype)
+
         
     """
     Moving forward in time
