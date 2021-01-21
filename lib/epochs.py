@@ -327,7 +327,7 @@ class Epoch(object):
             derived_params = calc_derived_params(self.epoch_params)
             approx_ne = self.x_h * self.epoch_params["nh"]
             approx_generation_t = derived_params["h_v"] + derived_params["v_h"]
-            self.tdelta =  2 * approx_ne * approx_generation_t  # E[TMRCA] = 2Ng
+            self.tdelta =  10 * approx_ne * approx_generation_t  # E[TMRCA] = 2Ng; but much density right of this
         else:
             self.tdelta = int(self.duration)  # assuming an int has been passed
         
@@ -537,16 +537,16 @@ class Epochs(object):
         self.init_duration = eval(self.config.get('Options', 'init_duration'))
         if self.init_duration is None:
             if verbose:
-                print("Initialising simulation to approximate equilibrium.")
+                print("Initialising simulation to approximate equilibrum.")
             ne = self.init_x_h*self.params['nh']
             g = (self.derived_params['h_v'] + self.derived_params['v_h']) 
-            time_to_equil = 2*ne*g
+            time_to_equil = 10 * ne * g  # E[TMRCA]=2Neg; but much density right of this
             self.init_duration = time_to_equil
         else:
             if verbose:
                 print("Initialising simulation to a user-specified duration.")
         if verbose:
-            print("  Initialisation duration: %d days" % self.init_duration)
+            print("  Initialisation duration: %d days = %d years" % (self.init_duration, self.init_duration/365))
         
         
     def prepare_epochs(self, verbose=False):
