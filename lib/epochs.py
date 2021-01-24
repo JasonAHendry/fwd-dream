@@ -327,7 +327,7 @@ class Epoch(object):
             derived_params = calc_derived_params(self.epoch_params)
             approx_ne = self.x_h * self.epoch_params["nh"]
             approx_generation_t = derived_params["h_v"] + derived_params["v_h"]
-            self.tdelta =  10 * approx_ne * approx_generation_t  # E[TMRCA] = 2Ng; but much density right of this
+            self.tdelta =  4.21 * approx_ne * approx_generation_t  # Covers TMRCA 95% of time
         else:
             self.tdelta = int(self.duration)  # assuming an int has been passed
         
@@ -540,7 +540,7 @@ class Epochs(object):
                 print("Initialising simulation to approximate equilibrum.")
             ne = self.init_x_h*self.params['nh']
             g = (self.derived_params['h_v'] + self.derived_params['v_h']) 
-            time_to_equil = 10 * ne * g  # E[TMRCA]=2Neg; but much density right of this
+            time_to_equil = 4.21 * ne * g  # Covers TMRCA 95% of time
             self.init_duration = time_to_equil
         else:
             if verbose:
