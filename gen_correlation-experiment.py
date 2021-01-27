@@ -3,6 +3,14 @@ Generate BMRC submission files for fwd-dream to conduct
 an experiment exploring how genetic diversity statistics 
 are correlated with parasite prevalence
 
+Usage:
+    python gen_correlation-experiment.py \
+        -e <expt_name, str> \
+        -p <params/param_file.ini, str> \
+        -s <params/sensitivity_file.ini, str> \  # optional
+        -n <n_reps, int>
+
+
 2020/12/23, JHendry
 """
 
