@@ -1,1 +1,0 @@
-python vary_param_set.py  -f param_correlation.ini -p bite_rate_per_v -v 0.149628 -v 0.159369 -v 0.171187 -v 0.185938 -v 0.205062 -v 0.231233 -v 0.270129 -v 0.336860 
