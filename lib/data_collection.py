@@ -627,16 +627,18 @@ def calc_ibd_statistics(genomes, ixs, rho, tau, theta, l_threshold):
     nsnps, ngenomes = genomes.shape
 
     # Compute number of pairwise comparisons
-    n_pairs = int(ngenomes * (ngenomes - 1) / 2)
+    npairs = int(ngenomes * (ngenomes - 1) / 2)
 
     # Store
     pairwise_dt = {
-        "f_ibs": np.zeros(n_pairs),
-        "l_ibs": np.zeros(n_pairs),
-        "f_ibd": np.zeros(n_pairs),
-        "l_ibd": np.zeros(n_pairs),
+        "f_ibs": np.zeros(npairs),
+        "l_ibs": np.zeros(npairs),
+        "f_ibd": np.zeros(npairs),
+        "l_ibd": np.zeros(npairs),
     }
-    pair_type = np.zeros(n_pairs, np.bool_)
+    pairwise_dt["l_ibs"][:] = -1  # for track length, only average over pairs with tracks
+    pairwise_dt["l_ibd"][:] = -1
+    pair_type = np.zeros(npairs, np.bool_)
 
     # Compute emission matrix for IBD HMM
     #emiss = calc_ibd_emissions(tau, theta)
@@ -669,9 +671,10 @@ def calc_ibd_statistics(genomes, ixs, rho, tau, theta, l_threshold):
     pairwise_dt["f_ibd"] /= nsnps
     popn_dt = {}
     for k, v in pairwise_dt.items():
-        popn_dt[k] = v.mean()
-        popn_dt[k + "_wn"] = v[pair_type].mean() if pair_type.any() else 0
-        popn_dt[k + "_bw"] = v[~pair_type].mean() if (~pair_type).any() else 0 
+        u = v >= 0
+        popn_dt[k] = v[u].mean()
+        popn_dt[k + "_wn"] = v[pair_type & u].mean() if pair_type.any() else np.nan
+        popn_dt[k + "_bw"] = v[~pair_type & u].mean() if (~pair_type).any() else np.nan
 
     return popn_dt
     
