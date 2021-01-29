@@ -321,7 +321,8 @@ while t0 < max_t0:
 
                     if epochs.current.calc_genetics:
                         print("Storing genetic data upon Epoch entry...")
-                        entry_genetics = storage.sample_genetics(t0=t0, h_dt=h_dt, update=False)
+                        entry_genetics = storage.sample_genetics(t0=t0, h_dt=h_dt, 
+                                                                 store=False, update=False)
                         json.dump(entry_genetics, 
                                   open(os.path.join(epoch_dir, "entry_genetics.json"), "w"), 
                                   default=default)

@@ -71,9 +71,46 @@ class DataCollection(object):
     """
     
     
-    def sample_prevalence(self, t0, nh, nv, h1, v1, h_dt, v_dt, update=True):
+    def sample_prevalence(self, t0, nh, nv, h1, v1, h_dt, v_dt, store=True, update=True):
         """
         Sample parasite prevalence for both hosts and vectors
+        
+        Parameters
+            t0 : float
+                Time in the simulation, in days.
+            nh : int
+                Number of hosts in the population.
+            nv : int
+                Number of vectors in the population.
+            h1 : ndarray, int8, shape (nh)
+                Array indicating infection status of all hosts
+                in the populatoin. 0=uninfected, 1=infected.
+            v1 : ndarray, int8, shape (nv)
+                Array indicating infection status of all vectors
+                in the population. 0=uninfected, 1=infected.
+            h_dt : dict, shape (n_infected_hosts)
+                keys : int
+                    Indices for infected hosts.
+                values : ndarray, float32, shape (nph, nsnps)
+                    Parasite genomes held by infected hosts.
+            v_dt : dict, shape (n_infected_vectors)
+                keys : int
+                    Indices for infected vectors.
+                values : ndarray, float32, shape (npv, nsnps)
+                    Parasite genomes held by infected vectors.
+            store : bool
+                Should prevalence information be stored in `op`
+                dataframe?
+            update : bool
+                Should the time of the simulation `t0` be updated to
+                sampling time?
+                
+        Returns
+            sample_dt : dict
+                keys : str
+                    Prevalence metric names.
+                values : float
+                    Metric values.
         
         """
         # Compute
@@ -91,8 +128,9 @@ class DataCollection(object):
         sample_dt["VmX"] = sample_dt["Vm"] / nv
         
         # Store
-        for k, v in sample_dt.items():
-            self.op[k].append(v)
+        if store:
+            for k, v in sample_dt.items():
+                self.op[k].append(v)
             
         # Update time-of-last-sampling
         if update: 
@@ -109,10 +147,32 @@ class DataCollection(object):
     """
     
     
-    def sample_genetics(self, t0, h_dt, update=True):
+    def sample_genetics(self, t0, h_dt, store=True, update=True):
         """
         Sample parasite genomes from the host population
         and compute a suite of genetic diversity statistics
+        
+        Parameters
+            t0 : float
+                Time in the simulation, in days.
+            h_dt : dict, shape (n_infected_hosts)
+                keys : int
+                    Indices for infected hosts.
+                values : ndarray, float32, shape (nph, nsnps)
+                    Parasite genomes held by infected hosts.
+            store : bool
+                Should prevalence information be stored in `op`
+                dataframe?
+            update : bool
+                Should the time of the simulation `t0` be updated to
+                sampling time?
+        
+        Returns
+            sample_dt : dict
+                keys : str
+                    Genetic diversity metric names.
+                values : float
+                    Metric values.
         
         """
         # Collect genomes from hosts
@@ -140,8 +200,10 @@ class DataCollection(object):
         sample_dt.update(diversity_dt)
         if self.track_ibd:
             sample_dt.update(ibd_dt)
-        for k, v in sample_dt.items():
-            self.og[k].append(v)
+            
+        if store:
+            for k, v in sample_dt.items():
+                self.og[k].append(v)
             
         # Update time-of-last-sampling
         if update:
@@ -172,7 +234,7 @@ class DataCollection(object):
                 be heterozygous for an infection to be detected
                 as mixed. In [0,1].
                 
-        Return
+        Returns
             ans : bool
                 True if the infection is mixed.
         """
@@ -319,7 +381,7 @@ class DataCollection(object):
                 Array encoding a set of sequenced parasite
                 genomes.
 
-        Returns:
+        Returns
             ac : AlleleCountArray, shape (nsnps, nalleles)
                 Allele counts for every loci in `genomes`.
 
