@@ -443,12 +443,6 @@ while t0 < max_t0:
     # Overall rate of events of interest
     rates = np.concatenate([interesting_biting_events, [clear_rate_h, clear_rate_v]])
     rates_total = rates.sum()
-    
-    if rates_total == 0:  # zero if extinction occurs
-        print("Parasite population has gone extinct at day %d." % t0)
-        print("Aborting simulation...")
-        extinct = True
-        break
         
     # Move forward in time to next event
     t0 += random.expovariate(rates_total)
@@ -589,6 +583,14 @@ while t0 < max_t0:
     # Recalculate number of infected hosts and vectors
     h1 = h.sum()
     v1 = v.sum()
+    
+    # Check if extinction has occurred
+    if h1 + v1 == 0:
+        print("Parasite population has gone extinct at day %d." % t0)
+        print("Aborting simulation...")
+        extinct = True
+        break
+        
 print("="*80)
 print("Done.")
 print("")
