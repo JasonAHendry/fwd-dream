@@ -671,11 +671,16 @@ def calc_ibd_statistics(genomes, ixs, rho, tau, theta, l_threshold):
     pairwise_dt["f_ibd"] /= nsnps
     popn_dt = {}
     for k, v in pairwise_dt.items():
-        u = v >= 0
-        popn_dt[k] = v[u].mean()
-        popn_dt[k + "_wn"] = v[pair_type & u].mean() if pair_type.any() else np.nan
-        popn_dt[k + "_bw"] = v[~pair_type & u].mean() if (~pair_type).any() else np.nan
-
+        if k.startswith("f_"):
+            popn_dt[k] = v.mean()
+            popn_dt[k + "_wn"] = v[pair_type].mean() if pair_type.any() else np.nan
+            popn_dt[k + "_bw"] = v[~pair_type].mean() if (~pair_type).any() else np.nan
+        else:
+            u = v >= 0
+            popn_dt[k] = v[u].mean() if u.any() else np.nan
+            popn_dt[k + "_wn"] = v[pair_type & u].mean() if (pair_type & u).any() else np.nan
+            popn_dt[k + "_bw"] = v[~pair_type & u].mean() if (~pair_type & u).any() else np.nan
+        
     return popn_dt
     
     
