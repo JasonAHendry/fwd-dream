@@ -68,7 +68,7 @@ for metric in ibd_metrics:
 tight_metrics = ['frac_mixed_samples', 'mean_k',
                  'n_segregating', 'n_singletons',
                  'pi', 'theta', 'tajd',
-                 'avg_frac_ibd', 'avg_n_ibd', 'avg_l_ibd']
+                 'f_ibd', 'l_ibd']
     
     
 def remove_metrics(rmv, metrics):
@@ -101,10 +101,7 @@ def create_shades(color, n, base="white"):
     return [mpl.colors.to_hex(s) for s in shades]
 
 tight_metric_cols = sns.color_palette("viridis", len(tight_metrics))
-tight_metric_col_dt = dict(zip(["mean_k", "frac_mixed_samples",
-                                "pi", "theta", "tajd",
-                                "n_segregating", "n_singletons",
-                                "avg_l_ibd", "avg_frac_ibd", "avg_n_ibd"], 
+tight_metric_col_dt = dict(zip(tight_metrics, 
                                tight_metric_cols))
 
 
