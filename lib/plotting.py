@@ -141,7 +141,8 @@ def prevalence_trajectory_plot(ot, epoch_df, ax,
                                indicate_epochs=None,
                                indicate_equilibriums=None,
                                time_limits=None,
-                               years_per_major_tick=5):
+                               years_per_major_tick=5,
+                               years_per_minor_tick=1):
     """
     Plot the trajectory of a genetic diversity
     statistic through time
@@ -174,7 +175,7 @@ def prevalence_trajectory_plot(ot, epoch_df, ax,
     # Set ticks, x-axis
     days_per_year = 365
     ax.xaxis.set_major_locator(plt.MultipleLocator(days_per_year * years_per_major_tick))
-    ax.xaxis.set_minor_locator(plt.MultipleLocator(days_per_year))
+    ax.xaxis.set_minor_locator(plt.MultipleLocator(days_per_year * years_per_minor_tick))
     ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, i : int(v / days_per_year)))
     
     # Delineate epoch boundaries
@@ -204,7 +205,8 @@ def prevalence_trajectory_average_plot(ot_mu, ot_se, epoch_df, ax,
                                        indicate_epochs=None,
                                        indicate_equilibriums=None,
                                        time_limits=None,
-                                       years_per_major_tick=5):
+                                       years_per_major_tick=5,
+                                       years_per_minor_tick=1):
     """
     Plot the trajectory of a genetic diversity
     statistic through time
@@ -240,7 +242,7 @@ def prevalence_trajectory_average_plot(ot_mu, ot_se, epoch_df, ax,
     # Set ticks, x-axis
     days_per_year = 365
     ax.xaxis.set_major_locator(plt.MultipleLocator(days_per_year * years_per_major_tick))
-    ax.xaxis.set_minor_locator(plt.MultipleLocator(days_per_year))
+    ax.xaxis.set_minor_locator(plt.MultipleLocator(days_per_year * years_per_minor_tick))
     ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, i : int(v / days_per_year)))
     
     # Delineate epoch boundaries
@@ -273,7 +275,8 @@ def genetic_trajectory_plot(metric, ot, epoch_df,
                             t_detection=None,
                             t_equilibrium=None,
                             alpha=1.0,
-                            years_per_major_tick=5):
+                            years_per_major_tick=5,
+                            years_per_minor_tick=1):
     """
     Plot the trajectory of a genetic diversity
     statistic through time
@@ -317,7 +320,7 @@ def genetic_trajectory_plot(metric, ot, epoch_df,
     # Set ticks, x-axis
     days_per_year = 365
     ax.xaxis.set_major_locator(plt.MultipleLocator(days_per_year * years_per_major_tick))
-    ax.xaxis.set_minor_locator(plt.MultipleLocator(days_per_year))
+    ax.xaxis.set_minor_locator(plt.MultipleLocator(days_per_year * years_per_minor_tick))
     ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, i : int(v / days_per_year)))
     
     # Twin axis
@@ -362,7 +365,8 @@ def genetic_trajectory_average_plot(metric, ot_mu, ot_se, epoch_df,
                                     time_limits=None,
                                     t_detection=None,
                                     t_equilibrium=None,
-                                    years_per_major_tick=5):
+                                    years_per_major_tick=5,
+                                    years_per_minor_tick=1):
     """
     Plot the trajectory of a genetic diversity
     statistic through time
@@ -407,7 +411,7 @@ def genetic_trajectory_average_plot(metric, ot_mu, ot_se, epoch_df,
     # Set ticks, x-axis
     days_per_year = 365
     ax.xaxis.set_major_locator(plt.MultipleLocator(days_per_year * years_per_major_tick))
-    ax.xaxis.set_minor_locator(plt.MultipleLocator(days_per_year))
+    ax.xaxis.set_minor_locator(plt.MultipleLocator(days_per_year * years_per_minor_tick))
     ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda v, i : int(v / days_per_year)))
     
     # Twin axis
