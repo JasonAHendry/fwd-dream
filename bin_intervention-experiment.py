@@ -13,7 +13,7 @@ Usage:
     -p <params/param_file.ini>
     
     
-The script will output to /analysis/<expt_name>.
+The script will output to `analysis/<expt_name>`.
 
 
 """

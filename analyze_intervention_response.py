@@ -1,6 +1,23 @@
+"""
+Compute the 'response times' for prevalence and genetic diversity metrics
+for a forward-dream malaria control intervention experiment
+
+Statistics are computed on individual simulations.
+
+Usage:
+  python analyse_intervention-response.py \
+    -e <exp_name>
+    
+The script will output to `analysis/<expt_name>/response`
+
+
+"""
+
+
 import os
 import sys
 import getopt
+import json
 from datetime import datetime
 import pandas as pd
 import numpy as np
@@ -33,7 +50,9 @@ except getopt.GetoptError:
 for opt, value in opts:
     if opt == "-e":
         expt_name = value
-        print("  Experiment to analyze:", expt_name)
+        expt_path = os.path.join("results", expt_name)
+        print("  Experiment:", expt_name)
+        print("  Input directory:", expt_path)
     else:
         print("Parameter %s not recognized." % opt)
         sys.exit(2)
@@ -43,13 +62,18 @@ print("")
 
 
 
-# PREPARE DIRECTORIES
-print("Preparing directories...")
-expt_path = os.path.join("results", expt_name)
-sim_complete = [s for s in os.listdir(expt_path) 
-                if "Endpoint" in os.listdir(os.path.join(expt_path, s))]
+# SEARCH FOR SIMULATIONS
+print("Searching for all experiment simulations...")
+dirs = [os.path.join(expt_path, d) for d in os.listdir(expt_path)]
+dirs = [d for d in dirs if os.path.isdir(d)]
+complete_dirs = []
+for d in dirs:
+    contents = os.listdir(d)
+    run_diagnostics = json.load(open(os.path.join(d, "run_diagnostics.json"), "r"))
+    if not run_diagnostics["extinct"]:
+        complete_dirs.append(d)
+sim_complete = [os.path.basename(d) for d in complete_dirs]
 n_sims = len(sim_complete)
-print("  Input directory:", expt_path)
 print("  No. complete simulations: %d" % n_sims)
 output_path = os.path.join("analysis", expt_name, "response")
 if not os.path.exists(output_path):
@@ -63,10 +87,10 @@ print("")
 
 # PREFERENCES
 savefig = True
-analysis_metrics = ["HX", "VX", 
+analysis_metrics = ['HX', 'VX', 
                     'frac_mixed_samples','mean_k',
-                    'n_segregating','pi','theta',
-                    'avg_frac_ibd', 'avg_n_ibd','avg_l_ibd']
+                    'n_singletons','n_segregating','pi','theta',
+                    'f_ibd', 'l_ibd']
 genetic_names.update({"mean_k": "C.O.I. ($k$)",
                       "pi": "Nucl. Diversity ($\pi$)"})
 response_dt = {}
@@ -161,7 +185,7 @@ for ix in view:
                               analysis_metrics=analysis_metrics)
     
     # Plot
-    metrics = ["mean_k", "pi", "avg_l_ibd"]
+    metrics = ["mean_k", "pi", "l_ibd"]
     fig, axes = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
     
     for ax, metric in zip(axes.flatten(), metrics):
@@ -174,7 +198,7 @@ for ix in view:
                                 t_equilibrium=e,
                                 years_per_major_tick=10)
         ax.set_ylabel(genetic_names[metric])
-        if metric == "avg_l_ibd":
+        if metric == "l_ibd":
             ax.set_xlabel("Time [years]")
         
     if savefig:
@@ -282,7 +306,7 @@ for ix in view:
                               analysis_metrics=analysis_metrics)
     
     # Visualize
-    metrics = ["mean_k", "pi", "avg_l_ibd"]
+    metrics = ["mean_k", "pi", "l_ibd"]
     fig, axes = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
     
     for ax, metric in zip(axes.flatten(), metrics):
@@ -295,7 +319,7 @@ for ix in view:
                                 t_equilibrium=e,
                                 years_per_major_tick=10)
         ax.set_ylabel(genetic_names[metric])
-        if metric == "avg_l_ibd":
+        if metric == "l_ibd":
             ax.set_xlabel("Time [years]")
         
     if savefig:
