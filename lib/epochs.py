@@ -581,6 +581,7 @@ class Epochs(object):
                 if verbose:
                     print(" ", i+1, ":", epoch.name)
                     print("    Begins: %d, Ends: %d" % (epoch.t0, epoch.t1))
+                    print("    Duration: %d days = %d years" % (epoch.tdelta, epoch.tdelta/365))
                     print("    Adjusting Parameter(s):", epoch.adj_keys)
                     print("    To Value(s):", epoch.adj_vals)
                     print("    via.:", epoch.approach)
@@ -597,7 +598,7 @@ class Epochs(object):
             
             self.max_t0 = self.epochs[-1].t1  # the end of the simulation
             if verbose:
-                print("  Total Duration: %d days" % self.max_t0)
+                print("  Total Duration: %d days = %d years" % (self.max_t0, self.max_t0/365))
         
     def update_time(self, t):
         """
