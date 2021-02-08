@@ -44,8 +44,8 @@ print("Parsing user inputs...")
 try:
     opts, args = getopt.getopt(sys.argv[1:], ":e:")
 except getopt.GetoptError:
-    print("Option error. Please conform to:")
-    print("-e <experiment_name>")
+    print("Option error. Check command line arguments.")
+    sys.exit(2)
 
 for opt, value in opts:
     if opt == "-e":
