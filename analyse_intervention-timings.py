@@ -90,7 +90,8 @@ savefig = True
 analysis_metrics = ['HX', 'VX', 
                     'frac_mixed_samples','mean_k',
                     'n_singletons','n_segregating','pi','theta',
-                    'f_ibd', 'l_ibd']
+                    'f_ibd', 'l_ibd', 
+                    'f_ibs', 'l_ibs']
 genetic_names.update({"mean_k": "C.O.I. ($k$)",
                       "pi": "Nucl. Diversity ($\pi$)"})
 response_dt = {}
@@ -158,6 +159,7 @@ print("  #: %d" % n_view)
 print("  to: %s" % example_path)
 
 for ix in view:
+    
     # Select individual
     sim = sim_complete[ix]
     
@@ -184,6 +186,12 @@ for ix in view:
                               robustness=6,
                               analysis_metrics=analysis_metrics)
     
+    if np.isnan(d).any() or np.isnan(e).any():
+        print("  For simulation %s" % sim)
+        print("  ...failed to compute detection and/or equilibrium.")
+        print("  Skipping.")
+        continue 
+    
     # Plot
     metrics = ["mean_k", "pi", "l_ibd"]
     fig, axes = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
@@ -198,7 +206,7 @@ for ix in view:
                                 t_equilibrium=e,
                                 years_per_major_tick=10)
         ax.set_ylabel(genetic_names[metric])
-        if metric == "l_ibd":
+        if metric == "f_ibd":
             ax.set_xlabel("Time [years]")
         
     if savefig:
@@ -305,8 +313,14 @@ for ix in view:
                               robustness=6,
                               analysis_metrics=analysis_metrics)
     
+    if np.isnan(d).any() or np.isnan(e).any():
+        print("  For simulation %s" % sim)
+        print("  ...failed to compute detection and/or equilibrium.")
+        print("  Skipping.")
+        continue 
+    
     # Visualize
-    metrics = ["mean_k", "pi", "l_ibd"]
+    metrics = ["mean_k", "pi", "f_ibd"]
     fig, axes = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
     
     for ax, metric in zip(axes.flatten(), metrics):
