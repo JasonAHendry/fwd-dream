@@ -18,7 +18,7 @@ print("=" * 80)
 # PARSE CLI
 print("Parsing user inputs...")
 try:
-    opts, args = getopt.getopt(sys.argv[1:], ":i:e:p:s:m:") # [(opt, arg), (opt, arg), (opt, arg)]
+    opts, args = getopt.getopt(sys.argv[1:], ":e:p:n:")
 except getopt.GetoptError:
     print("Option Error. Please conform to:")
     print("-i <clonal/mixed/all>")
@@ -28,19 +28,12 @@ for opt, value in opts:
     if opt == "-e":
         expt_name = value
         print("Experiment Name:", expt_name)
-    elif opt == "-i":
-        iters = int(value)
-        print("Number of Iterations:", iters)
     elif opt == "-p":
         param_path = value
         print("Parameter Path:", param_path)
-    elif opt == "-s":
-        seed_method = value
-        print("Seed Method:", seed_method)
-    elif opt == "-m":
-        migration = True
-        migration_dir = value
-        print("Migration Dir:", migration_dir)
+    elif opt == "-n":
+        iters = int(value)
+        print("Number of Iterations:", iters)
     else:
         print("Parameter %s not recognized." % opt)
         sys.exit(2)
@@ -69,9 +62,7 @@ f.write("\n# Iterations: %s" % iters)
 f.write("\n# Parameter File: %s" % param_path)
 f.write("\n# ----------------------")
 f.write("\n")
-flags = "-e %s -p %s -s %s" % (expt_name, param_path, seed_method)
-if migration:
-    flags += " -m %s" % migration_dir
+flags = "-e %s -p %s" % (expt_name, param_path)
 for i in range(iters):
     f.write("qsub run_simulation.sh %s\n" % flags)
 f.write("\n")

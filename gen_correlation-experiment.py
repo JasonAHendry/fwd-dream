@@ -5,13 +5,14 @@ are correlated with parasite prevalence
 
 Usage:
     python gen_correlation-experiment.py \
-        -e <expt_name, str> \
-        -p <params/param_file.ini, str> \
-        -s <params/sensitivity_file.ini, str> \  # optional
+        -e <expt_name> \
+        -p <params/param_file.ini> \
+        -s <params/sensitivity_file.ini> \ (optional)
         -n <n_reps, int>
 
 
 2020/12/23, JHendry
+
 """
 
 
@@ -181,7 +182,6 @@ for f in [f_br, f_gamma, f_nv]:
 statement = "qsub run_simulation.sh"
 statement += " -e %s"  # will change depending on br, gamma, nv
 statement += " -p %s" % param_file
-statement += " -s clonal"
 
 # Iterate over all parameter combinations
 print("Writing submission statements for all parameter combinations...")

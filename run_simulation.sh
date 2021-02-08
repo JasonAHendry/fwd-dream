@@ -33,16 +33,6 @@ do
 	  echo "Parameter Path:" $param_path
 	  shift
 	  ;;
-	-s)
-	  seed_method=$2
-	  echo "Seed Method:" $seed_method
-	  shift
-	  ;;
-    -m)
-	  migration_dir=$2
-	  echo "Migration Directory:" $migration_dir
-	  shift
-	  ;;
 	*)
 	  ;;
   esac

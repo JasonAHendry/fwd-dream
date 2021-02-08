@@ -1,3 +1,16 @@
+"""
+Run forward-dream
+
+Usage:
+  python simulation.py \
+    -e <expt_name> \
+    -p <params/param_file.ini> \
+    -c <gamma=0.04> (optional)
+
+2021/02/08, JHendry
+
+"""
+
 import os
 import errno
 import sys
@@ -37,15 +50,10 @@ print("=" * 80)
 # PARSE CLI INPUT
 print("Parsing Command Line Inputs...")
 try:
-    opts, args = getopt.getopt(sys.argv[1:], ":e:p:s:c:")
-    # Example
-    # python simulation.py 
-    # -e <expt_name> 
-    # -p <params/param_file.ini> 
-    # -s <clonal/unique>
-    # -c eta=0.3
+    opts, args = getopt.getopt(sys.argv[1:], ":e:p:c:")
 except getopt.GetoptError:
     print("Error parsing options.")
+    sys.exit(2)
     
 change_param = False
 for opt, value in opts:
@@ -53,8 +61,6 @@ for opt, value in opts:
         expt_name = value
     elif opt == "-p":
         param_file = value
-    elif opt == "-s":
-        seed_method = value
     elif opt == "-c":
         change = {}
         change_param = True
@@ -96,7 +102,6 @@ print("  Parameter File:", param_file)
 print("  Simulation Name:", sim_name)
 print("  ...the %s simulation of this type." % sim_id)
 print("  Output Directory:", out_dir)
-print("  Seed Method:", seed_method)
 print("  Changing parameter(s)?:", change_param)
 print("Done.")
 print("")
@@ -222,6 +227,7 @@ v1 = np.sum(v == 1)
 print("  ...with %d infected humans" % h1)
 print("  ...and %d infected vectors." % v1)
 print("  Parasite genome data type: %s" % h_dt[0].dtype)
+print("  All genomes clonal.")
 print("Done.")
 print("")
 

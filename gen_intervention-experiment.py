@@ -11,6 +11,7 @@ Usage:
 
 
 2020/01/27, JHendry
+
 """
 
 import os
@@ -133,7 +134,7 @@ for fn, (key, val) in param_files_dt.items():
         
         # Write submission statements
         for _ in range(n_reps):
-            cmd = "qsub run_simulation.sh -e %s-%s -p %s -s clonal"
+            cmd = "qsub run_simulation.sh -e %s-%s -p %s"
             f.write(cmd % (expt_name, key, output_path))
             f.write("\n")
         
