@@ -38,7 +38,7 @@ I've included an example parameter set (`params/param_default-example.ini`) and 
 
 ```
 conda activate dream
-python simulation.py -e default -p params/param_default-example.ini -s clonal
+python simulation.py -e default -p params/param_default-example.ini
 ```
 
 The simulation should now print some diagnostics to `stdout`. Once the simulation is done, you should be able to run the notebook `notebooks/sec0_plot-default-example.ipynb` to produce plots that recreate Figure 2 of the `forward-dream` manuscript:
