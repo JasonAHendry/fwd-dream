@@ -193,7 +193,7 @@ for ix in view:
         continue 
     
     # Plot
-    metrics = ["mean_k", "pi", "l_ibd"]
+    metrics = ["mean_k", "pi", "f_ibd"]
     fig, axes = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
     
     for ax, metric in zip(axes.flatten(), metrics):
@@ -333,7 +333,7 @@ for ix in view:
                                 t_equilibrium=e,
                                 years_per_major_tick=10)
         ax.set_ylabel(genetic_names[metric])
-        if metric == "l_ibd":
+        if metric == "f_ibd":
             ax.set_xlabel("Time [years]")
         
     if savefig:
