@@ -5,7 +5,7 @@ for a forward-dream malaria control intervention experiment
 Statistics are computed on individual simulations.
 
 Usage:
-  python analyse_intervention-response.py \
+  python analyse_intervention-timings.py \
     -e <exp_name>
     
 The script will output to `analysis/<expt_name>/response`
