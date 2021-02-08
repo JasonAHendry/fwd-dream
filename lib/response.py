@@ -87,13 +87,13 @@ def calc_detection_time(ot, epoch_df,
         try:
             detect_t0 = outside.apply(lambda x: t0[np.where([w == k for w in window(x, n=robustness)])[0].min()], 0)
         except ValueError:
-            print("Detection failed.")
+            print("Failed to determine detection time for all metrics.")
             detect_t0 = np.nan
     else:
         try:
             detect_t0 = outside.apply(lambda x: t0[np.where(x)[0]].min(), 0)
         except ValueError:
-            Print("Detection failed.")
+            print("Failed to determine detection time for all metrics.")
             detect_t0 = np.nan
     
     return detect_t0
@@ -141,13 +141,13 @@ def calc_equilibrium_time(ot, epoch_df,
         try:
             detect_t0 = inside.apply(lambda x: t0[np.where([w == k for w in window(x, n=robustness)])[0].min()], 0)
         except ValueError:
-            print("Detection failed.")
+            print("Failed to determine equilibrium time for all metrics.")
             detect_t0 = np.nan
     else:
         try:
             detect_t0 = inside.apply(lambda x: t0[np.where(x)[0]].min(), 0)
         except ValueError:
-            print("Detection failed.")
+            print("Failed to determine equilibrium time for all metrics.")
             detect_t0 = np.nan
     
     return detect_t0
