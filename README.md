@@ -34,7 +34,7 @@ The simulation will run printing diagnostics to `stdout` in your terminal. Outpu
 
 ### A small example
 
-I've included an example parameter set (`params/param_default-example.ini`) and notebook (`notebooks/sec0_plot-default-example.ipynb`) for you to get started with `forward-dream`. The parameters are set such that the simulation runs with default parameters, but for only 10 years, such that you can run the simulation in a couple minutes on your local machine. To run it, navigate to the `/fwd-dream` directory and run:
+I've included an example parameter set (`params/param_default-example.ini`) and notebook (`notebooks/sec0_plot-default-example.ipynb`) for you to get started with `forward-dream`. The parameters are set such that the simulation runs with default parameters, but for only 20 years, such that you can run the simulation in a couple minutes on your local machine. To run it, navigate to the `/fwd-dream` directory and run:
 
 ```
 conda activate dream
@@ -45,7 +45,7 @@ The simulation should now print some diagnostics to `stdout`. Once the simulatio
 
 ![fig-genetics](figs/sec0_default-genetics.png)
 
-Note that ten years is not enough time for the population to reach genetic equilibrium. 
+Note that twenty years is not enough time for the population to reach genetic equilibrium. 
 
 
 ## Workflows
