@@ -81,10 +81,8 @@ for d in dirs:
             print("  %s experienced extinction." % d)
     except FileNotFoundError:
         print("  %s is not completed." % d)
-        
-        
-print(" Found %d total simulations." % len(dirs))
-print("   Total incomplete/extinct: %d" % (len(dirs) - len(complete_dirs)))
+print("  Found %d total simulations." % len(dirs))
+print("    No. incomplete/extinct: %d" % (len(dirs) - len(complete_dirs)))
 print("Done.")
 print("")
 
