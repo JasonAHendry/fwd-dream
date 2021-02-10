@@ -73,11 +73,18 @@ dirs = [d for d in dirs if os.path.isdir(d)]
 complete_dirs = []
 for d in dirs:
     contents = os.listdir(d)
-    run_diagnostics = json.load(open(os.path.join(d, "run_diagnostics.json"), "r"))
-    if not run_diagnostics["extinct"]:
-        complete_dirs.append(d)
+    try:
+        run_diagnostics = json.load(open(os.path.join(d, "run_diagnostics.json"), "r"))
+        if not run_diagnostics["extinct"]:
+            complete_dirs.append(d)
+        else:
+            print("  %s experienced extinction." % d)
+    except FileNotFoundError:
+        print("  %s is not completed." % d)
+        
+        
 print(" Found %d total simulations." % len(dirs))
-print("   Extinction occurred in: %d" % (len(dirs) - len(complete_dirs)))
+print("   Total incomplete/extinct: %d" % (len(dirs) - len(complete_dirs)))
 print("Done.")
 print("")
 
