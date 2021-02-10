@@ -69,12 +69,19 @@ dirs = [d for d in dirs if os.path.isdir(d)]
 complete_dirs = []
 for d in dirs:
     contents = os.listdir(d)
-    run_diagnostics = json.load(open(os.path.join(d, "run_diagnostics.json"), "r"))
-    if not run_diagnostics["extinct"]:
-        complete_dirs.append(d)
+    try:
+        run_diagnostics = json.load(open(os.path.join(d, "run_diagnostics.json"), "r"))
+        if not run_diagnostics["extinct"]:
+            complete_dirs.append(d)
+        else:
+            print("  %s experienced extinction." % d)
+    except FileNotFoundError:
+        print("  %s is not completed." % d)
+print("  Found %d total simulations." % len(dirs))
+print("    No. incomplete/extinct: %d" % (len(dirs) - len(complete_dirs)))
 sim_complete = [os.path.basename(d) for d in complete_dirs]
 n_sims = len(sim_complete)
-print("  No. complete simulations: %d" % n_sims)
+print("    No. complete simulations: %d" % n_sims)
 output_path = os.path.join("analysis", expt_name, "response")
 if not os.path.exists(output_path):
     os.makedirs(output_path)
@@ -90,7 +97,7 @@ savefig = True
 analysis_metrics = ['HX', 'VX', 
                     'frac_mixed_samples','mean_k',
                     'n_singletons','n_segregating','pi','theta',
-                    'f_ibd', 'l_ibd', 
+                    'f_ibd',  # I have excluded `l_ibd`, because it does not change enough 
                     'f_ibs', 'l_ibs']
 genetic_names.update({"mean_k": "C.O.I. ($k$)",
                       "pi": "Nucl. Diversity ($\pi$)"})
@@ -250,8 +257,8 @@ for sim in sim_complete:
     ds.append(d)
     es.append(e)
 print("  Aggregating...")
-ds = [d for d in ds if not np.isnan(d).any()]
-es = [e for e in es if not np.isnan(e).any()]
+# ds = [d for d in ds if not np.isnan(d).any()]
+# es = [e for e in es if not np.isnan(e).any()]
 detect_df = pd.concat(ds, 1).transpose()
 equil_df = pd.concat(es, 1).transpose()
 # Store medians
