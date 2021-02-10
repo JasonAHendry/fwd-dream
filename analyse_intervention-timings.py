@@ -109,8 +109,9 @@ response_dt = {}
 print("Calculating response times for crash...")
 ds = []
 es = []
-
+print("-"*80)
 for sim in sim_complete:
+    print("%s..." % sim)
     # Load full data frame
     epoch_df = pd.read_csv(os.path.join(expt_path, sim, "epoch_df.csv"))
     epoch_df.index = epoch_df.name
@@ -137,16 +138,15 @@ for sim in sim_complete:
     # Store
     ds.append(d)
     es.append(e)
-print("  Aggregating...")
-ds = [d for d in ds if not np.isnan(d).any()]
-es = [e for e in es if not np.isnan(e).any()]
+print("-"*80)
+print("Aggregating...")
 detect_df = pd.concat(ds, 1).transpose()
 equil_df = pd.concat(es, 1).transpose()
 # Store medians
 response_dt["metric"] = detect_df.columns
 response_dt["crash_detect"] = detect_df.median().values
 response_dt["crash_equil"] = equil_df.median().values
-print("  Saving...")
+print("Saving...")
 detect_df.to_csv(os.path.join(output_path, "crash_detection.csv"), index=False)
 equil_df.to_csv(os.path.join(output_path, "crash_equilibrium.csv"), index=False)
 print("Done.")
@@ -229,7 +229,9 @@ print("")
 print("Calculating response times for recovery...")
 ds = []
 es = []
+print("-"*80)
 for sim in sim_complete:
+    print("%s..." % sim)
     # Load full data frame
     epoch_df = pd.read_csv(os.path.join(expt_path, sim, "epoch_df.csv"))
     epoch_df.index = epoch_df.name
@@ -256,7 +258,9 @@ for sim in sim_complete:
     # Store
     ds.append(d)
     es.append(e)
-print("  Aggregating...")
+    
+print("-"*80)
+print("Aggregating...")
 # ds = [d for d in ds if not np.isnan(d).any()]
 # es = [e for e in es if not np.isnan(e).any()]
 detect_df = pd.concat(ds, 1).transpose()
@@ -264,7 +268,7 @@ equil_df = pd.concat(es, 1).transpose()
 # Store medians
 response_dt["recovery_detect"] = detect_df.median().values
 response_dt["recovery_equil"] = equil_df.median().values
-print("  Saving...")
+print("Saving...")
 detect_df.to_csv(os.path.join(output_path, "recovery_detection.csv"), index=False)
 equil_df.to_csv(os.path.join(output_path, "recovery_equilibrium.csv"), index=False)
 print("Done.")
