@@ -71,7 +71,7 @@ def calc_detection_time(ot, epoch_df,
     if type(n_roll) is int:
         respond = respond.rolling(n_roll).mean().dropna()
         
-    # Extract Time Column, Normalize to Start of Respond
+    # Extract time column, normalise to start of respond
     t0 = respond["t0"].values
     t0 -= t0[0]
     
@@ -81,22 +81,29 @@ def calc_detection_time(ot, epoch_df,
     above = respond.gt(bounds.loc[quantiles[1]])
     outside = below | above
     
-    # Convert to detection time
-    if type(robustness) is int:
-        k = (True,) * robustness
-        try:
-            detect_t0 = outside.apply(lambda x: t0[np.where([w == k for w in window(x, n=robustness)])[0].min()], 0)
-        except ValueError:
-            print("Failed to determine detection time for all metrics.")
+    # Compute detection times for each metric
+    result_dt = {}
+    for metric, vals in outside.iteritems():
+
+        # Determine if detection occurs
+        if type(robustness) is int:
+            k = (True,) * robustness
+            ixs = np.where([w == k for w in window(vals, n=robustness)])[0]
+        else:
+            ixs = np.where(vals)[0]
+
+        # Get time of detection
+        if len(ixs) > 0:
+            ix = ixs.min()
+            detect_t0 = t0[ix]
+        else:
             detect_t0 = np.nan
-    else:
-        try:
-            detect_t0 = outside.apply(lambda x: t0[np.where(x)[0]].min(), 0)
-        except ValueError:
-            print("Failed to determine detection time for all metrics.")
-            detect_t0 = np.nan
+            print("No detection for %s" % metric)
+
+        # Store
+        result_dt[metric] = detect_t0
     
-    return detect_t0
+    return pd.Series(result_dt)
 
 
 
@@ -125,7 +132,7 @@ def calc_equilibrium_time(ot, epoch_df,
     if type(n_roll) is int:
         respond = respond.rolling(n_roll).mean().dropna()
         
-    # Extract Time Column, Normalize to Start of Respond
+    # Extract time column, normalise to start of respond
     t0 = respond["t0"].values
     t0 -= t0[0]
     
@@ -135,22 +142,28 @@ def calc_equilibrium_time(ot, epoch_df,
     above = respond.gt(bounds.loc[quantiles[0]])
     inside = below & above
     
-    # Convert to detection time
-    if type(robustness) is int:
-        k = (True,) * robustness
-        try:
-            detect_t0 = inside.apply(lambda x: t0[np.where([w == k for w in window(x, n=robustness)])[0].min()], 0)
-        except ValueError:
-            print("Failed to determine equilibrium time for all metrics.")
-            detect_t0 = np.nan
-    else:
-        try:
-            detect_t0 = inside.apply(lambda x: t0[np.where(x)[0]].min(), 0)
-        except ValueError:
-            print("Failed to determine equilibrium time for all metrics.")
-            detect_t0 = np.nan
-    
-    return detect_t0
+    # Compute detection times for each metric
+    result_dt = {}
+    for metric, vals in inside.iteritems():
 
+        # Determine if detection occurs
+        if type(robustness) is int:
+            k = (True,) * robustness
+            ixs = np.where([w == k for w in window(vals, n=robustness)])[0]
+        else:
+            ixs = np.where(vals)[0]
+
+        # Get time of detection
+        if len(ixs) > 0:
+            ix = ixs.min()
+            detect_t0 = t0[ix]
+        else:
+            detect_t0 = np.nan
+            print("No equilibrium for %s" % metric)
+
+        # Store
+        result_dt[metric] = detect_t0
+    
+    return pd.Series(result_dt)
 
 
