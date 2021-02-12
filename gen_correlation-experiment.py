@@ -250,10 +250,11 @@ for p in prevs:
     print("-"*80)
 
 # Close all files
-for f in [f_br, f_gamma, f_nv]:
+for f, n in zip([f_br, f_gamma, f_nv], ["br", "gamma", "nv"]):
     f.write("\n")
     f.write("#" + "="*80+"\n")
     f.close()
+    os.chmod("submit_%s-correlations.sh" % n, 0o777)
 print("Done.")
 print("")
 
