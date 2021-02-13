@@ -186,6 +186,11 @@ epochs.prepare_epochs(verbose=True)
 max_t0 = epochs.max_t0  # pull this out of class for speed
 print("Done.")
 print("")
+if max_t0 <= 0:
+    print("Negative initialisation time.")
+    print("Increase equilibrium prevalence or set `init_duration` explicitly.")
+    print("Aborting.")
+    sys.exit(2)
 
 
 # STORAGE
@@ -391,8 +396,14 @@ while t0 < max_t0:
         t_h[:] = t0
 
         # Sample genetics
-        storage.sample_genetics(t0=t0, h_dt=h_dt)
-                
+        try:
+            storage.sample_genetics(t0=t0, h_dt=h_dt)
+        except ZeroDivisionError:  # very occassionally, get an error here; trying to catch.
+            print("Encountered ZeroDivisionError.")
+            print("Saving simulation state and exiting..")
+            save_simulation(t0, h_dt, v_dt, t_h, t_v, out_path)
+            break
+            
     # Print a report to screen
     if gen % report_rate == 0:
         nHm = sum([storage.detect_mixed(genomes, options['detection_threshold']) 
