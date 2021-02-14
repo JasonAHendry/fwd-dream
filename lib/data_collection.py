@@ -186,12 +186,15 @@ class DataCollection(object):
         # Compute statistics
         k_dt = self.calc_coi_statistics(ks)
         diversity_dt = self.calc_diversity_statistics(pos, ac)
-        if self.track_ibd: 
-            ibd_dt = dict(calc_ibd_statistics(genomes, ixs,   # convert to dict from jit
-                                              rho=4/nsnps,  # allowing ~4 meioses 
-                                              tau=0.05,
-                                              theta=1.0,
-                                              l_threshold=self.l_threshold))
+        if self.track_ibd:
+            if ks.sum() > 1:
+                ibd_dt = dict(calc_ibd_statistics(genomes, ixs,   # convert to dict from jit
+                                                  rho=4/nsnps,  # allowing ~4 meioses 
+                                                  tau=0.05,
+                                                  theta=1.0,
+                                                  l_threshold=self.l_threshold))
+            else: # can't compute IBD with one sample
+                ibd_dt = {m: np.nan for m in self.ibd_statistics}
         
         # Store
         sample_dt = {}
