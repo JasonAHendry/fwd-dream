@@ -98,7 +98,7 @@ def calc_detection_time(ot, epoch_df,
             detect_t0 = t0[ix]
         else:
             detect_t0 = np.nan
-            print("No detection for %s" % metric)
+            print("  No detection for %s" % metric)
 
         # Store
         result_dt[metric] = detect_t0
@@ -159,7 +159,7 @@ def calc_equilibrium_time(ot, epoch_df,
             detect_t0 = t0[ix]
         else:
             detect_t0 = np.nan
-            print("No equilibrium for %s" % metric)
+            print("  No equilibrium for %s" % metric)
 
         # Store
         result_dt[metric] = detect_t0

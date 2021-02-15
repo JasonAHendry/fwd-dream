@@ -41,21 +41,19 @@ genetic_names = {
 ibd_metrics = [prefix + suffix 
                for prefix in ["f_ibd", "l_ibd", "f_ibs", "l_ibs"] 
                for suffix in ["", "_bw", "_wn"]]
-for metric in ibd_metrics:
-    name = ""
-    if metric[0] == "f":
-        name += "Fraction"
-    elif metric[0] == "l":
-        name += "Mean Length" 
-    if "ibd" in metric:
-        name += " IBD"
-    elif "ibs" in metric:
-        name += " IBS"
-    if "_bw" in metric:
-        name += " Between Hosts"
-    elif "_wn" in metric:
-        name += " Within Host"
-    genetic_names.update({ metric: name })
+ibd_names = {
+    "f_ibd": "Fraction IBD",
+    "f_ibs": "Fraction IBS",
+    "l_ibd": "Mean IBD Segment Length",
+    "l_ibs": "Mean IBS Segment Length",
+}
+ibd_within = {k + "_wn" : v + " Within Host" for k, v in ibd_names.items()}
+ibd_between = {k + "_bw" : v + " Between Hosts" for k, v in ibd_names.items()}
+ibd_names.update(ibd_within)
+ibd_names.update(ibd_between)
+
+genetic_names.update(ibd_names)
+
 
       
 # ================================================================= #
@@ -68,7 +66,7 @@ for metric in ibd_metrics:
 tight_metrics = ['frac_mixed_samples', 'mean_k',
                  'n_segregating', 'n_singletons',
                  'pi', 'theta', 'tajd',
-                 'f_ibd', 'l_ibd']
+                 'f_ibd', 'l_ibd', 'f_ibs', 'l_ibs']
     
     
 def remove_metrics(rmv, metrics):
