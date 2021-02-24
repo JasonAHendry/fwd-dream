@@ -259,25 +259,7 @@ class Epoch(object):
             raise ValueError("The number of approach functions given by `approach` must equal" + \
                              "the number of approach times given by `approach_ts`.")
         
-        
-        ### MOST OF THE BELOW WILL BE SIMPLY DROPPED
-        
-#         # Longitudinal sampling of genetic diversity
-#         self.adj_div_samp = None
-#         self.div_samp_freq = None
-#         self.div_samp_t = None
-        
-#         # Longitudinal sampling of prevalence
-#         self.adj_prev_samp = None
-#         self.prev_samp_freq = None
-#         self.prev_samp_t = None
-        
-        ### =====
-        
-        
-        
         # Storage
-#         self.calc_genetics = config.getboolean(section, "calc_genetics")
         self.save_state = config.getboolean(section, "save_state")
         
     
@@ -369,41 +351,6 @@ class Epoch(object):
         # We don't continuously update parameters, but at a frequency defined below
         self.approach_t1 = self.t0 + max(self.approach_ts)
         self.param_update_freq = max(self.approach_ts) / n_updates
-        
-            
-#     def set_sampling(self):
-#         """
-#         Set the sampling rate of prevalence and
-#         genetic diversity data during the Epoch
-        
-#         I WILL ENTIRELY REMOVE THIS METHOD
-        
-#         Parameters
-#             Null
-#         Returns
-#             Null
-        
-#         """
-#         if self.t1 is None:
-#             raise ValueError("Must run `.set_timings()` before running `.set_sampling()`.")
-        
-#         # Prevalence
-#         self.adj_prev_samp = self.config.has_option(self.section, "prev_samp_freq")
-#         if self.adj_prev_samp:
-#             self.prev_samp_freq = self.config.getfloat(self.section, "prev_samp_freq")
-#             if self.config.has_option(self.section, "prev_samp_t"):
-#                 self.prev_samp_t = self.config.getfloat(self.section, "prev_samp_t")
-#             else:
-#                 self.prev_samp_t = self.tdelta # until end of epoch
-        
-#         # Diversity
-#         self.adj_div_samp = self.config.has_option(self.section, "div_samp_freq")
-#         if self.adj_div_samp:
-#             self.div_samp_freq = self.config.getfloat(self.section, "div_samp_freq")
-#             if self.config.has_option(self.section, "div_samp_t"):
-#                 self.div_samp_t = self.config.getfloat(self.section, "div_samp_t")
-#             else:
-#                 self.div_samp_t = self.tdelta  # until end of epoch
         
     
     def gen_approach_func(self, key, approach, approach_t):
@@ -582,12 +529,10 @@ class Epochs(object):
                     epoch.set_params(self.params)
                     epoch.set_timings(self.init_duration)  # begins at end of initialization
                     epoch.set_approach()
-                    #epoch.set_sampling()  # THIS GETS REMOVED
                 else:
                     epoch.set_params(entry_params=self.epochs[i-1].epoch_params)
                     epoch.set_timings(start_time=self.epochs[i-1].t1)  # begins at end `.t1` of previous epoch
                     epoch.set_approach()
-                    #epoch.set_sampling()  # THIS GETS REMOVED
                 if verbose:
                     print(" ", i+1, ":", epoch.name)
                     print("    Begins: %d, Ends: %d" % (epoch.t0, epoch.t1))
@@ -597,14 +542,6 @@ class Epochs(object):
                     print("    via.:", epoch.approach)
                     print("    Approach Time(s):", epoch.approach_ts)
                     print("    Host Prevalence: %.03f, Vector: %.03f" % (epoch.x_h, epoch.x_v))
-                    #print("    Adjust Prevalence Sampling:", epoch.adj_prev_samp)
-#                     if epoch.adj_prev_samp:
-#                         print("    ...to every %d days for %d days." \
-#                               % (epoch.prev_samp_freq, epoch.prev_samp_t))
-#                     print("    Adjust Diversity Sampling:", epoch.adj_div_samp)
-#                     if epoch.adj_div_samp:
-#                         print("    ...to every %d days for %d days." \
-#                               % (epoch.div_samp_freq, epoch.div_samp_t))
             
             self.max_t0 = self.epochs[-1].t1  # the end of the simulation
             if verbose:
@@ -643,7 +580,8 @@ class Epochs(object):
         """
         
         if self.exist:
-            print("Writing Epochs dataframe...")
+            if verbose:
+                print("Writing Epochs dataframe...")
 
             epoch_dt = {
                 "name": ["init"],
@@ -665,8 +603,9 @@ class Epochs(object):
     
             epoch_df = pd.DataFrame(epoch_dt)
             epoch_df.to_csv(os.path.join(out_dir, "epoch_df.csv"), index=False)
-            print("Done.")
-            print("")
+            if verbose:
+                print("Done.")
+                print("")
         else:
             print("No Epochs to write.")
             

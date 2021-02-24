@@ -253,7 +253,7 @@ history = {"inf_h": 0, "superinf_h": 0, "clear_h": 0,
 extinct = False  # switches to True if parasite popn goes extinct
 while t0 < max_t0:
 
-    gen += 1  # possibly almost no longer necessary
+    gen += 1
     
     """
     Epochs
@@ -292,28 +292,8 @@ while t0 < max_t0:
             if int(params["nv"]) != len(v):
                 v, t_v, v_dt = update_vectors(nv=params["nv"], v=v, t_v=t_v, v_dt=v_dt)
                 v1 = v.sum()
-                
-                
-                
-            ### BELOW REMOVED
 
 
-#             # Optionally update sampling rates
-#             if epochs.current.adj_prev_samp:
-#                 print("Adjusting Prevalence Sampling Rate: %d" % storage.prev_samp_freq)
-#                 print("... to: %d" % epochs.current.prev_samp_freq)
-#                 storage.prev_samp_freq = epochs.current.prev_samp_freq
-
-#             if epochs.current.adj_div_samp:
-#                 print("Adjusting Diversity Sampling Rate: %d" % storage.div_samp_freq)
-#                 print("... to: %d" % epochs.current.div_samp_freq)
-#                 storage.div_samp_freq = epochs.current.div_samp_freq
-                
-                
-            # ---------------
-
-            
-            # REMOVE CALC GENETICS
             if epochs.current.save_state:
                 # Bring host parasite population to present before collecting samples
                 h_dt = evolve_all_hosts(h_dt=h_dt, tis=t0-t_h, 
@@ -350,22 +330,6 @@ while t0 < max_t0:
             if int(params["nv"]) != len(v):
                 v, t_v, v_dt = update_vectors(nv=params["nv"], v=v, t_v=t_v, v_dt=v_dt)
                 v1 = v.sum()  # recalculate number of infected vectors
-        
-        
-        ### BELOW REMOVE -- 
-        
-#         # Return to original sampling rates
-#         if epochs.current.adj_prev_samp:
-#             if t0 > epochs.current.t0 + epochs.current.prev_samp_t:
-#                 storage.prev_samp_freq = prev_samp_freq
-#                 epochs.current.adj_prev_samp = False
-                
-#         if epochs.current.adj_div_samp:
-#             if t0 > epochs.current.t0 + epochs.current.div_samp_t:
-#                 storage.div_samp_freq = div_samp_freq
-#                 epochs.current.adj_div_samp = False
-                
-        ### ---------
 
 
     """
@@ -642,15 +606,19 @@ print("")
 print("Final Population State")
 if h1 > 0:
     print("  Prevalence Statistics")
-    for metric, value in team.scientists[0].op.iloc[-1][1:].items():
-        print("   %s: %.02f" % (op_names[metric], value))
+    for metric, values in team.scientists[0].op.items():
+        if metric == "t0": 
+            continue
+        print("   %s: %.02f" % (op_names[metric], values[-1]))
     print("")
     
     print("  Genetic Diversity Statistics")
-    for metric, value in team.scientists[0].og.iloc[-1][1:].items():
+    for metric, values in team.scientists[0].og.items():
+        if metric == "t0": 
+            continue
         statement = "    %s:"
         statement += " %d" if metric.startswith("n_") else " %.03f"
-        print(statement % (genetic_names[metric], value))     
+        print(statement % (genetic_names[metric], values[-1]))     
 else:
     print("Host parasite population extinct!")
     print("... can't compute genetics.")

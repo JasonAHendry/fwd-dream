@@ -1,11 +1,9 @@
 import os
 import time
-
 import random
 import pandas as pd
 import numpy as np
 import allel
-
 from numba import jit
 
 
@@ -13,7 +11,8 @@ from numba import jit
 
 class Reporting(object):
     """
-    Print to screen the state of the simulation
+    Control printing of simulation state information
+    to stdout
     
     """
     
@@ -83,17 +82,15 @@ class Reporting(object):
 
 
 
-# ================================================================= #
-# Class to co-ordinate multiple sampling strategies
-# - IBD related functions have been moved outside of the
-#   class to allow for Numba optimisation
-#
-# ================================================================= #
-
-
-
-
 class FieldTeam(object):
+    """
+    Co-ordinate multiple FieldScientist() objects
+    
+    Each FieldScientist() object allows for an independent
+    prevalence and genetic diversity sampling process.
+    
+    """
+    
     def __init__(self, config, nsnps):
         
         # Configuration object from parameter .ini
@@ -122,8 +119,8 @@ class FieldTeam(object):
         Returns
             Null
         
-        
         """
+        
         for i, section in enumerate(self.sections):
 
             # Parse start time
@@ -170,14 +167,13 @@ class FieldTeam(object):
             # Store
             self.scientists.append(scientist)
             
-            # Verbosity
             if verbose:
                 print("  %d : %s" % (i+1, scientist.name))
                 print("    Begins: %d, Ends: %d" % (scientist.start, scientist.end))
                 print("    Prevalence Sampling Freq.: %d" % scientist.prev_samp_freq)
                 print("    Diversity Sampling Freq.: %d" % scientist.div_samp_freq)
                 print("    Maximum Samples: %d" % scientist.max_samples)
-                print("    Detection Threshld: %.03f" % scientist.detection_threshold)
+                print("    Detection Threshold: %.03f" % scientist.detection_threshold)
             
         self.n_scientists = len(self.scientists)
         if verbose:
@@ -206,7 +202,7 @@ class FieldTeam(object):
             
             # Create output directory, if needed
             if scientist.name != "":
-                sampling_path = os.path.join(output_path, scientist.name)
+                sampling_path = os.path.join(output_path, "sampling", scientist.name)
                 if not os.path.exists(sampling_path):
                     os.makedirs(sampling_path)
             else:
@@ -219,17 +215,16 @@ class FieldTeam(object):
 
 
 
-# ================================================================= #
-# Class to hold an individual sampling strategy
-# - IBD related functions have been moved outside of the
-#   class to allow for Numba optimisation
-#
-# ================================================================= #
-
-
-
-
 class FieldScientist(object):
+    """
+    Collect prevalence and genetic data throughout a
+    forward-dream simulation
+    
+    This object houses all of the information necessary
+    to construct an independent sampling process,
+    defined by sampling frequencies and a sample size.
+    
+    """
     
     # Parasite prevalence statistics collected:
     prevalence_statistics = ["t0", "V1", "VX", "H1", "HX", "Hm", "HmX", "Vm", "VmX"]
@@ -247,18 +242,9 @@ class FieldScientist(object):
     
     
     # Initialise with no data
-    def __init__(self, name,
-                 start, end,
-                 prev_samp_freq, div_samp_freq,
-                 max_samples, detection_threshold, 
-                 track_ibd, l_threshold=None):
-        """
-        Collect all of the information necessary for
-        genetic data sampling
+    def __init__(self, name, start, end, prev_samp_freq, div_samp_freq,
+                 max_samples, detection_threshold, track_ibd, l_threshold=None):
         
-        """
-        
-        # Parse name, start and end
         self.name = name
         self.start = start
         self.end = end
