@@ -1,19 +1,235 @@
+import os
+import time
+
 import random
 import pandas as pd
 import numpy as np
-from numba import jit
 import allel
+
+from numba import jit
+
+
+
+
+class Reporting(object):
+    """
+    Print to screen the state of the simulation
+    
+    """
+    
+    def __init__(self, report_rate, detection_threshold):
+        
+        self.trep = 0
+        self.report_rate = report_rate
+        self.detection_threshold = detection_threshold
+        
+        
+    def detect_mixed(self, oo, detection_threshold=None):
+        """
+        Detect if a given infection is mixed
+        
+        Note: this is the same function that exists
+        in `FieldScientist()`
+
+        Parameters
+            oo : ndarray, float32, shape (nph, nsnps)
+                Array containing parasite genomes for a host
+                or vector. Rows index parasite genomes,
+                columns index SNP positions.
+            detection_threshold : float
+                Specifies the minimum fraction of SNPs that must 
+                be heterozygous for an infection to be detected
+                as mixed. In [0,1].
+                
+        Returns
+            ans : bool
+                True if the infection is mixed.
+        """
+        n_het_sites = (oo.min(0) != oo.max(0)).sum()
+        if detection_threshold is None:
+            ans = n_het_sites > 0
+        else:
+            nsnps = oo.shape[1]
+            ans = n_het_sites / nsnps >= detection_threshold
+        return ans
+    
+    
+    def print_report(self, t0, h_dt, v_dt, h1, v1, params):
+        """
+        Print a report to the screen detailing the current
+        state of the simulation
+        
+        
+        """
+        
+        # Compute number of mixed infections
+        nHm = sum([self.detect_mixed(genomes, self.detection_threshold) 
+                   for idh, genomes in h_dt.items()])
+        
+        nVm = sum([self.detect_mixed(genomes, self.detection_threshold) 
+                   for idv, genomes in v_dt.items()])
+        
+        # Print
+        print("%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%.02f" \
+              % (t0, 
+                 params["nh"], params["nv"], 
+                 h1, v1, 
+                 nHm, nVm,
+                 time.time() - self.trep))
+        
+        # Update time since last report
+        self.trep = time.time()
+
+
 
 
 # ================================================================= #
-# Class to handle both prevalence and genetic data collection
-# - Note the IBD related functions have been moved outside of the
+# Class to co-ordinate multiple sampling strategies
+# - IBD related functions have been moved outside of the
 #   class to allow for Numba optimisation
 #
 # ================================================================= #
 
 
-class DataCollection(object):
+
+
+class FieldTeam(object):
+    def __init__(self, config, nsnps):
+        
+        # Configuration object from parameter .ini
+        self.config = config
+        self.sections = [s for s in self.config.sections() if s.startswith("Sampling")]
+        self.names = []
+        self.nsnps = nsnps
+        self.bp_per_cM = 2 * nsnps / 100 
+        
+        # Storage for FieldScientist objects
+        self.scientists = []
+        self.n_scientists = 0
+        
+    def prepare_sampling(self, epochs, verbose=False):
+        """
+        Parse all of the `Sampling_` sections in the
+        `config` file into individual `FieldScientist`
+        objects
+        
+        
+        Parameters
+            epochs : class Epochs
+                Class holding all of the epochs
+                specified for the current simulation.
+            verbose : bool
+        Returns
+            Null
+        
+        
+        """
+        for i, section in enumerate(self.sections):
+
+            # Parse start time
+            start = self.config.get(section, 'start')
+            if start in [e.name for e in epochs.epochs]:
+                start_t0 = [e.t0 for e in epochs.epochs if e.name == start][0]
+            else:
+                try:
+                    start_t0 = int(start)
+                except ValueError:
+                    raise("`start` for sampling section %s not recognised." % section)
+                
+            # Parse duration or end time
+            has_end = self.config.has_option(section, 'end')
+            has_duration = self.config.has_option(section, 'duration')
+            if has_end and not has_duration:
+                end = self.config.get(section, 'end')
+                if end in [e.name for e in epochs.epochs]:
+                    end_t0 = [e.t1 for e in epochs.epochs if e.name == end][0]
+                else:
+                    try:
+                        end_t0 = int(end)
+                    except ValueError:
+                        raise("`end` for sampling section %s not recognised." % section)
+            elif has_duration and not has_end:
+                duration = self.config.getint(section, 'duration')
+                end_t0 = start_t0 + duration
+            else:
+                print("Must specifiy either end time or duration and not both.")
+                sys.exit(2)
+            
+            
+            # Instantiate class
+            scientist = FieldScientist(
+                name=section.split("_")[1],
+                start=start_t0, end=end_t0,
+                prev_samp_freq=self.config.getint(section, 'prev_samp_freq'),
+                div_samp_freq=self.config.getint(section, 'div_samp_freq'),
+                max_samples=self.config.getint(section, 'max_samples'),
+                detection_threshold=self.config.getfloat(section, 'detection_threshold'),
+                track_ibd=self.config.getboolean(section, 'track_ibd'), 
+                l_threshold=self.bp_per_cM * 2)
+            
+            # Store
+            self.scientists.append(scientist)
+            
+            # Verbosity
+            if verbose:
+                print("  %d : %s" % (i+1, scientist.name))
+                print("    Begins: %d, Ends: %d" % (scientist.start, scientist.end))
+                print("    Prevalence Sampling Freq.: %d" % scientist.prev_samp_freq)
+                print("    Diversity Sampling Freq.: %d" % scientist.div_samp_freq)
+                print("    Maximum Samples: %d" % scientist.max_samples)
+                print("    Detection Threshld: %.03f" % scientist.detection_threshold)
+            
+        self.n_scientists = len(self.scientists)
+        if verbose:
+            print("  Total number of sampling strategies: %d" % self.n_scientists)
+    
+    
+    def write_outputs(self, output_path):
+        """
+        Write output `.csv` files for all of the sampling
+        strategies
+        
+        Parameters
+            output_path : str
+                Path to the simulation's output directory.
+            verbose : bool
+        
+        Returns
+            Null
+        
+        """
+        
+        for scientist in self.scientists:
+            # Extract prevalence and genetics
+            op = pd.DataFrame(scientist.op)
+            og = pd.DataFrame(scientist.og)
+            
+            # Create output directory, if needed
+            if scientist.name != "":
+                sampling_path = os.path.join(output_path, scientist.name)
+                if not os.path.exists(sampling_path):
+                    os.makedirs(sampling_path)
+            else:
+                sampling_path = output_path
+            
+            # Write
+            op.to_csv(os.path.join(sampling_path, "op.csv"), index=False)
+            og.to_csv(os.path.join(sampling_path, "og.csv"), index=False)
+
+
+
+
+# ================================================================= #
+# Class to hold an individual sampling strategy
+# - IBD related functions have been moved outside of the
+#   class to allow for Numba optimisation
+#
+# ================================================================= #
+
+
+
+
+class FieldScientist(object):
     
     # Parasite prevalence statistics collected:
     prevalence_statistics = ["t0", "V1", "VX", "H1", "HX", "Hm", "HmX", "Vm", "VmX"]
@@ -31,9 +247,21 @@ class DataCollection(object):
     
     
     # Initialise with no data
-    def __init__(self, prev_samp_freq, div_samp_freq,
+    def __init__(self, name,
+                 start, end,
+                 prev_samp_freq, div_samp_freq,
                  max_samples, detection_threshold, 
                  track_ibd, l_threshold=None):
+        """
+        Collect all of the information necessary for
+        genetic data sampling
+        
+        """
+        
+        # Parse name, start and end
+        self.name = name
+        self.start = start
+        self.end = end
         
         # Data Storage
         self.og = {k:[] for k in self.genetic_statistics}
@@ -69,6 +297,17 @@ class DataCollection(object):
     --------------------------------------------------------------------------------
     
     """
+    
+    def take_prevalence(self, t0):
+        """
+        Return True if it is time to take a prevalence sample
+
+        """
+        ans = False
+        if self.start <= t0 <= self.end:
+            if (t0 - self.tprev) >= self.prev_samp_freq:
+                ans = True
+        return ans
     
     
     def sample_prevalence(self, t0, nh, nv, h1, v1, h_dt, v_dt, store=True, update=True):
@@ -145,6 +384,18 @@ class DataCollection(object):
     --------------------------------------------------------------------------------
     
     """
+    
+    
+    def take_genetics(self, t0):
+        """
+        Return True if it is time to take a genetics sample
+
+        """
+        ans = False
+        if self.start <= t0 <= self.end:
+            if (t0 - self.tdiv) >= self.div_samp_freq:
+                ans = True
+        return ans
     
     
     def sample_genetics(self, t0, h_dt, store=True, update=True):

@@ -132,10 +132,10 @@ bp_per_cM = 2 * params["nsnps"] / 100  # scaled for 1 CO per bivalent
 # Options
 options = {}
 options['n_seed'] = eval(config.get('Options', 'n_seed'))
-options['binary_genomes'] = eval(config.get('Options', 'binary_genomes'))
 options['init_duration'] = eval(config.get('Options', 'init_duration'))
-options['max_samples'] = eval(config.get('Options', 'max_samples'))
-options['detection_threshold'] = eval(config.get('Options', 'detection_threshold'))
+options['binary_genomes'] = eval(config.get('Options', 'binary_genomes'))
+options['report_rate'] = eval(config.get('Options', 'report_rate'))
+report_rate = options["report_rate"]
 
 print("Parameter Values")
 print("  No. of Humans:", params['nh'])
@@ -161,53 +161,46 @@ print("  Psi:", derived_params['psi'])
 print("  Expected Human Prevalence:", x_h)
 print("  Expected Vector Prevalence:", x_v)
 print("  R0:", R0)
-print("    Limit number of samples collected to:", options['max_samples'])
-print("    Set the detection threshold for mixed infections to:", options['detection_threshold'])
 print("    Parasite genomes binary?:", options['binary_genomes'])
-
-
-# SAMPLING
-print("Sampling Preferences")
-prev_samp_freq = config.getint('Sampling', 'prev_samp_freq')
-div_samp_freq = config.getint('Sampling', 'div_samp_freq')
-report_rate = config.getint('Sampling', 'report_rate')
-
-print("  Sampling Prevalence Every %d Days" % prev_samp_freq)
-print("  Sampling Genetic Diversity Every %d Days" % div_samp_freq)
-print("  Printed Report Every %d Events" % report_rate)
 print("Done.")
 print("")
 
 
 # PARSE EPOCHS
+print("Preparing Epochs...")
 epochs = Epochs(params, config)
 epochs.set_initialisation(verbose=True)
 epochs.prepare_epochs(verbose=True)
 max_t0 = epochs.max_t0  # pull this out of class for speed
-print("Done.")
-print("")
 if max_t0 <= 0:
     print("Negative initialisation time.")
     print("Increase equilibrium prevalence or set `init_duration` explicitly.")
     print("Aborting.")
     sys.exit(2)
+print("Done.")
+print("")
 
 
-# STORAGE
-print("Preparing Simulation Data Storage...")
-track_ibd = config.getboolean('Sampling', 'track_ibd')
-l_threshold = 2 * bp_per_cM if track_ibd else None  # for 2cM detection threshold
-print("    Track IBD?", track_ibd)
-if track_ibd:
-    print("    IBD Length Threshold: 2cM = %dbp" % l_threshold)
-storage = DataCollection(prev_samp_freq=prev_samp_freq,
-                         div_samp_freq=div_samp_freq,
-                         max_samples=options['max_samples'],
-                         detection_threshold=options['detection_threshold'],
-                         track_ibd=track_ibd, l_threshold=l_threshold)
+# SAMPLING
+print("Preparing sampling strategies...")
+team = FieldTeam(config, params["nsnps"])
+team.prepare_sampling(epochs=epochs, verbose=True)
+print("Done.")
+print("")
+
+
+# REPORTING
+print("Preparing printed reports...")
+reporter = Reporting(report_rate=options['report_rate'],
+                     detection_threshold=team.scientists[0].detection_threshold)
+print("  Report rate:", reporter.report_rate)
+print("  Detection Threshold:", reporter.detection_threshold)
+print("Done.")
+print("")
 
 
 # DATA STRUCTURES
+print("Initialising data structures...")
 h = np.zeros(params['nh'], dtype=np.int8)  # Host infection status
 v = np.zeros(params['nv'], dtype=np.int8)  # Vector infection status
 h_dt = {}  # host index: parasite genomes
@@ -252,7 +245,7 @@ print("-"*80)
 print("Day \t NH \t NV \t H1 \t V1 \t Hm \t Vm \t Elapsed (s) \t")
 print("-"*80)
 start_time = time.time()
-trep = start_time  # time of last report
+reporter.trep = start_time  # time of last report
 t0 = 0  # stores the current time, in days
 gen = 0  # 'generations' of the simulation; one event (bite or clearance) occurs in each generation
 history = {"inf_h": 0, "superinf_h": 0, "clear_h": 0, 
@@ -299,21 +292,29 @@ while t0 < max_t0:
             if int(params["nv"]) != len(v):
                 v, t_v, v_dt = update_vectors(nv=params["nv"], v=v, t_v=t_v, v_dt=v_dt)
                 v1 = v.sum()
+                
+                
+                
+            ### BELOW REMOVED
 
 
-            # Optionally update sampling rates
-            if epochs.current.adj_prev_samp:
-                print("Adjusting Prevalence Sampling Rate: %d" % storage.prev_samp_freq)
-                print("... to: %d" % epochs.current.prev_samp_freq)
-                storage.prev_samp_freq = epochs.current.prev_samp_freq
+#             # Optionally update sampling rates
+#             if epochs.current.adj_prev_samp:
+#                 print("Adjusting Prevalence Sampling Rate: %d" % storage.prev_samp_freq)
+#                 print("... to: %d" % epochs.current.prev_samp_freq)
+#                 storage.prev_samp_freq = epochs.current.prev_samp_freq
 
-            if epochs.current.adj_div_samp:
-                print("Adjusting Diversity Sampling Rate: %d" % storage.div_samp_freq)
-                print("... to: %d" % epochs.current.div_samp_freq)
-                storage.div_samp_freq = epochs.current.div_samp_freq
+#             if epochs.current.adj_div_samp:
+#                 print("Adjusting Diversity Sampling Rate: %d" % storage.div_samp_freq)
+#                 print("... to: %d" % epochs.current.div_samp_freq)
+#                 storage.div_samp_freq = epochs.current.div_samp_freq
+                
+                
+            # ---------------
 
-
-            if epochs.current.calc_genetics or epochs.current.save_state:
+            
+            # REMOVE CALC GENETICS
+            if epochs.current.save_state:
                 # Bring host parasite population to present before collecting samples
                 h_dt = evolve_all_hosts(h_dt=h_dt, tis=t0-t_h, 
                                        drift_rate=params['drift_rate_h'], theta=params['theta_h'],
@@ -329,17 +330,9 @@ while t0 < max_t0:
                     if epochs.current.save_state:
                         print("Saving simulation state...")
                         save_simulation(t0, h_dt, v_dt, t_h, t_v, epoch_dir)
-
-                    if epochs.current.calc_genetics:
-                        print("Storing genetic data upon Epoch entry...")
-                        entry_genetics = storage.sample_genetics(t0=t0, h_dt=h_dt, 
-                                                                 store=False, update=False)
-                        json.dump(entry_genetics, 
-                                  open(os.path.join(epoch_dir, "entry_genetics.json"), "w"), 
-                                  default=default)
                 else:
                     print("Human parasite population currently extinct!")
-                    print("... can't compute genetics or collect genomes.")
+                    print("... can't save state.")
             print("Done.")
             print("")
 
@@ -358,16 +351,21 @@ while t0 < max_t0:
                 v, t_v, v_dt = update_vectors(nv=params["nv"], v=v, t_v=t_v, v_dt=v_dt)
                 v1 = v.sum()  # recalculate number of infected vectors
         
-        # Return to original sampling rates
-        if epochs.current.adj_prev_samp:
-            if t0 > epochs.current.t0 + epochs.current.prev_samp_t:
-                storage.prev_samp_freq = prev_samp_freq
-                epochs.current.adj_prev_samp = False
+        
+        ### BELOW REMOVE -- 
+        
+#         # Return to original sampling rates
+#         if epochs.current.adj_prev_samp:
+#             if t0 > epochs.current.t0 + epochs.current.prev_samp_t:
+#                 storage.prev_samp_freq = prev_samp_freq
+#                 epochs.current.adj_prev_samp = False
                 
-        if epochs.current.adj_div_samp:
-            if t0 > epochs.current.t0 + epochs.current.div_samp_t:
-                storage.div_samp_freq = div_samp_freq
-                epochs.current.adj_div_samp = False
+#         if epochs.current.adj_div_samp:
+#             if t0 > epochs.current.t0 + epochs.current.div_samp_t:
+#                 storage.div_samp_freq = div_samp_freq
+#                 epochs.current.adj_div_samp = False
+                
+        ### ---------
 
 
     """
@@ -382,35 +380,28 @@ while t0 < max_t0:
     
     """
     
-    # Sample prevalence
-    if (t0 - storage.tprev) >= storage.prev_samp_freq:
-        storage.sample_prevalence(t0=t0, h1=h1, v1=v1, nh=params['nh'], nv=params['nv'], 
-                                  h_dt=h_dt, v_dt=v_dt)
-    
-    # Sample genetics
-    if (t0 - storage.tdiv) >= storage.div_samp_freq:
-        # Evolve hosts to sampling time
-        h_dt = evolve_all_hosts(h_dt=h_dt, tis=t0-t_h, 
-                                drift_rate=params['drift_rate_h'], theta=params['theta_h'],
-                                nsnps=params['nsnps'], binary_genomes=options['binary_genomes'])
-        t_h[:] = t0
+    # Iterate over different sampling strategies
+    for scientist in team.scientists:
+        # Sample prevalence
+        if scientist.take_prevalence(t0):
+            scientist.sample_prevalence(t0=t0, h1=h1, v1=v1, nh=params['nh'], nv=params['nv'], 
+                                        h_dt=h_dt, v_dt=v_dt)
 
         # Sample genetics
-        storage.sample_genetics(t0=t0, h_dt=h_dt)
-            
+        if scientist.take_genetics(t0):
+            # Evolve hosts to sampling time
+            h_dt = evolve_all_hosts(h_dt=h_dt, tis=t0-t_h, 
+                                    drift_rate=params['drift_rate_h'], theta=params['theta_h'],
+                                    nsnps=params['nsnps'], binary_genomes=options['binary_genomes'])
+            t_h[:] = t0
+
+            # Sample genetics
+            scientist.sample_genetics(t0=t0, h_dt=h_dt)
+    
+    
     # Print a report to screen
     if gen % report_rate == 0:
-        nHm = sum([storage.detect_mixed(genomes, options['detection_threshold']) 
-                   for idh, genomes in h_dt.items()])
-        nVm = sum([storage.detect_mixed(genomes, options['detection_threshold']) 
-                   for idv, genomes in v_dt.items()])
-        print("%.0f\t%d\t%d\t%d\t%d\t%d\t%d\t%.02f" \
-              % (t0, 
-                 params["nh"], params["nv"], 
-                 h1, v1, 
-                 nHm, nVm,
-                 time.time() - trep))
-        trep = time.time()
+        reporter.print_report(t0, h_dt, v_dt, h1, v1, params)
 
         
     """
@@ -617,11 +608,10 @@ print("")
 
 # WRITE RESULTS
 print("Writing Outputs...")
-op = pd.DataFrame(storage.op)
-og = pd.DataFrame(storage.og)
-op.to_csv(os.path.join(out_path, "op.csv"), index=False)
-og.to_csv(os.path.join(out_path, "og.csv"), index=False)
+team.write_outputs(out_path)
 epochs.write_epochs(out_path)
+print("Done.")
+print("")
 
 # Save parameter changes
 if change_param:
@@ -652,12 +642,12 @@ print("")
 print("Final Population State")
 if h1 > 0:
     print("  Prevalence Statistics")
-    for metric, value in op.iloc[-1][1:].items():
+    for metric, value in team.scientists[0].op.iloc[-1][1:].items():
         print("   %s: %.02f" % (op_names[metric], value))
     print("")
     
     print("  Genetic Diversity Statistics")
-    for metric, value in og.iloc[-1][1:].items():
+    for metric, value in team.scientists[0].og.iloc[-1][1:].items():
         statement = "    %s:"
         statement += " %d" if metric.startswith("n_") else " %.03f"
         print(statement % (genetic_names[metric], value))     
