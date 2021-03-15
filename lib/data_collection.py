@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import random
 import pandas as pd
@@ -146,8 +147,15 @@ class FieldTeam(object):
                     except ValueError:
                         raise("`end` for sampling section %s not recognised." % section)
             elif has_duration and not has_end:
-                duration = self.config.getint(section, 'duration')
-                end_t0 = start_t0 + duration
+                duration = self.config.get(section, 'duration')
+                if duration in [e.name for e in epochs.epochs]:
+                    duration_t0 = [e.tdelta for e in epochs.epochs if e.name == duration][0]
+                else:
+                    try:
+                        duration_t0 = int(duration)
+                    except ValueError:
+                        raise("`duration` for sampling section %s is not recognised." % section)
+                end_t0 = start_t0 + duration_t0
             else:
                 print("Must specifiy either end time or duration and not both.")
                 sys.exit(2)
@@ -627,7 +635,7 @@ class FieldScientist(object):
 
         """
         nsnps, ngenomes = genomes.shape
-        ac = np.zeros((nsnps, ngenomes), np.int16)  # the maximum possible size
+        ac = np.zeros((nsnps, ngenomes), np.int32)  # the maximum possible size
         for i in np.arange(nsnps):
             counts = np.unique(genomes[i], return_counts=True)[1]
             n = len(counts)
